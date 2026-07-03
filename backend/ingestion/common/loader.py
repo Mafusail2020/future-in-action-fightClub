@@ -20,6 +20,8 @@ def load(source: Source, output: SourceOutput) -> list[str]:
     doc_ids: list[str] = []
     for raw in output.docs:
         raion_id = resolve(raw.raion_slug)
+        if raw.external_id:  # scraper re-run: replace, don't duplicate (chunks/features cascade)
+            docs_repo.delete_by_external_id(source_id, raw.external_id)
         doc_id = docs_repo.insert_document({
             "source_id": source_id,
             "raion_id": raion_id,
@@ -29,6 +31,7 @@ def load(source: Source, output: SourceOutput) -> list[str]:
             "url": raw.url,
             "published_at": raw.published_at.isoformat() if raw.published_at else None,
             "content": raw.content,
+            "external_id": raw.external_id,
             "meta": raw.meta,
         })
         chunks = chunk_text(raw.content)
@@ -49,6 +52,8 @@ def load(source: Source, output: SourceOutput) -> list[str]:
         print(f"  doc: {raw.title!r} -> {len(chunks)} chunks")
 
     if output.metrics:
+        # raion_slug=None is a city-wide metric (raion_id NULL); only rows
+        # pointing at an unknown slug are dropped.
         mf_repo.insert_metrics([
             {
                 "raion_id": resolve(m.get("raion_slug")),
@@ -59,7 +64,7 @@ def load(source: Source, output: SourceOutput) -> list[str]:
                 "meta": m.get("meta", {}),
             }
             for m in output.metrics
-            if m.get("raion_slug") in slug_map
+            if m.get("raion_slug") is None or m.get("raion_slug") in slug_map
         ])
         print(f"  metrics: {len(output.metrics)}")
 

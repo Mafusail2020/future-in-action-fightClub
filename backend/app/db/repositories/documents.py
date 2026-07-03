@@ -21,6 +21,18 @@ def insert_document(row: dict[str, Any]) -> str:
     return res.data[0]["id"]
 
 
+def delete_by_external_id(source_id: str, external_id: str) -> None:
+    """Remove a scraper-owned document before re-inserting its fresh version."""
+    (
+        get_supabase()
+        .table("documents")
+        .delete()
+        .eq("source_id", source_id)
+        .eq("external_id", external_id)
+        .execute()
+    )
+
+
 def insert_chunks(rows: list[dict[str, Any]]) -> None:
     if rows:
         get_supabase().table("doc_chunks").insert(rows).execute()

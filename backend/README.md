@@ -19,7 +19,7 @@ FastAPI + LangGraph agent over two RAG pools in Supabase (pgvector):
    `service_role` key into `.env` as `SUPABASE_SERVICE_KEY`.
 
 3. Apply migrations: open the Supabase dashboard → SQL editor, paste and run each file from
-   `app/db/migrations/` **in order** (0001 → 0004).
+   `app/db/migrations/` **in order** (0001 → 0005).
 
 ## Data pipeline
 
@@ -33,6 +33,24 @@ uv run python -m ingestion.run --source cameras   # images in data/camera_snapsh
 uv run python -m ingestion.run --source all       # everything
 uv run python -m scripts.generate_digests         # per-raion digests (run after every ingest)
 ```
+
+### API scrapers (live external data, no keys needed)
+
+| source | data | refresh (TTL) |
+|---|---|---|
+| `saveecobot` | city air quality AQI + meteo + gamma ([attribution required](https://www.saveecobot.com/maps/zhytomyr)) | 1 h |
+| `citybudget` | community budget incomes/expenses from council decision annexes on data.gov.ua | 30 d |
+| `prozorro` | active city tenders (roads/transport/utilities/lighting) as problem signals | 24 h |
+
+```bash
+uv run python -m ingestion.run --source saveecobot           # respects cache TTL
+uv run python -m ingestion.run --source prozorro --force     # bypass cache
+```
+
+Raw responses are cached in `data/raw/api/`. Re-running a scraper replaces its
+documents (stable `external_id`) and appends metrics as a time series — safe to
+run repeatedly. Metrics without an area are **city-wide**: the agent reads them
+via `raion_stats` with no `raion_slug`.
 
 ## Run
 

@@ -8,17 +8,16 @@ def insert_metrics(rows: list[dict[str, Any]]) -> None:
         get_supabase().table("raion_metrics").insert(rows).execute()
 
 
-def get_metrics(raion_id: str | None, metric: str | None = None,
+def get_metrics(raion_id: str, metric: str | None = None,
                 limit: int = 100) -> list[dict[str, Any]]:
-    """raion_id=None returns city-wide metrics (rows with NULL raion_id)."""
     q = (
         get_supabase()
         .table("raion_metrics")
         .select("metric, value, unit, measured_at")
+        .eq("raion_id", raion_id)
         .order("measured_at", desc=True)
         .limit(limit)
     )
-    q = q.eq("raion_id", raion_id) if raion_id else q.is_("raion_id", "null")
     if metric:
         q = q.eq("metric", metric)
     res = q.execute()

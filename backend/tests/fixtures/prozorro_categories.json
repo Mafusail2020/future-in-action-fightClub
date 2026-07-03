@@ -1,0 +1,172 @@
+{
+ "roads": [
+  {
+   "procuringEntity": {
+    "identifier": {
+     "legalName": "Глибочицька сільська рада Житомирського району Житомирської області",
+     "scheme": "UA-EDR",
+     "id": "04348289"
+    },
+    "address": {
+     "streetAddress": "вул. Михайла Грушевського, 2",
+     "postalCode": "12403",
+     "locality": "с. Глибочиця",
+     "countryName": "Україна",
+     "region": "Житомирська область"
+    },
+    "contactPoint": {
+     "name": "Катерина Кручок",
+     "telephone": "+380412406015",
+     "email": "406009@ukr.net"
+    },
+    "kind": "authority",
+    "name": "Глибочицька сільська рада Житомирського району Житомирської області"
+   },
+   "enquiryPeriod": {
+    "clarificationsUntil": "2026-07-18T00:00:00+03:00",
+    "invalidationDate": "2026-06-26T14:55:54.194887+03:00",
+    "endDate": "2026-07-15T00:00:00+03:00",
+    "startDate": "2026-06-26T14:54:57.823879+03:00"
+   },
+   "title": "Капітальний ремонт дорожнього покриття вул. Житомирська від буд. №73 до автомобільної дороги Житомир-Левків в с. Клітчин Житомирського району Житомирської області",
+   "tenderID": "UA-2026-06-26-008641-a",
+   "value": {
+    "amount": 1804311.6,
+    "valueAddedTaxIncluded": true,
+    "currency": "UAH"
+   },
+   "tenderPeriod": {
+    "endDate": "2026-07-18T00:00:00+03:00",
+    "startDate": "2026-06-26T14:54:57.823879+03:00"
+   },
+   "status": "active.tendering"
+  },
+  {
+   "procuringEntity": {
+    "identifier": {
+     "legalName": "Глибочицька сільська рада Житомирського району Житомирської області",
+     "scheme": "UA-EDR",
+     "id": "04348289"
+    },
+    "address": {
+     "streetAddress": "вул. Михайла Грушевського, 2",
+     "postalCode": "12403",
+     "locality": "м. Житомир",
+     "countryName": "Україна",
+     "region": "Житомирська область"
+    },
+    "contactPoint": {
+     "name": "Катерина Кручок",
+     "telephone": "+380412406015",
+     "email": "406009@ukr.net"
+    },
+    "kind": "authority",
+    "name": "Управління комунального господарства Житомирської міської ради"
+   },
+   "enquiryPeriod": {
+    "clarificationsUntil": "2026-07-18T00:00:00+03:00",
+    "invalidationDate": "2026-06-26T14:55:54.194887+03:00",
+    "endDate": "2026-07-15T00:00:00+03:00",
+    "startDate": "2026-06-26T14:54:57.823879+03:00"
+   },
+   "title": "Поточний ремонт дорожнього покриття по вул. Велика Бердичівська у м. Житомир (Богунія)",
+   "tenderID": "UA-2026-06-20-000001-a",
+   "value": {
+    "amount": 2500000.0,
+    "valueAddedTaxIncluded": true,
+    "currency": "UAH"
+   },
+   "tenderPeriod": {
+    "endDate": "2026-07-18T00:00:00+03:00",
+    "startDate": "2026-06-26T14:54:57.823879+03:00"
+   },
+   "status": "active.tendering"
+  },
+  {
+   "procuringEntity": {
+    "identifier": {
+     "legalName": "Глибочицька сільська рада Житомирського району Житомирської області",
+     "scheme": "UA-EDR",
+     "id": "04348289"
+    },
+    "address": {
+     "streetAddress": "вул. Михайла Грушевського, 2",
+     "postalCode": "12403",
+     "locality": "м. Житомир",
+     "countryName": "Україна",
+     "region": "Житомирська область"
+    },
+    "contactPoint": {
+     "name": "Катерина Кручок",
+     "telephone": "+380412406015",
+     "email": "406009@ukr.net"
+    },
+    "kind": "authority",
+    "name": "Управління комунального господарства Житомирської міської ради"
+   },
+   "enquiryPeriod": {
+    "clarificationsUntil": "2026-07-18T00:00:00+03:00",
+    "invalidationDate": "2026-06-26T14:55:54.194887+03:00",
+    "endDate": "2026-07-15T00:00:00+03:00",
+    "startDate": "2026-06-26T14:54:57.823879+03:00"
+   },
+   "title": "Поточний ремонт дорожнього покриття по вул. Велика Бердичівська у м. Житомир (Богунія)",
+   "tenderID": "UA-2026-06-20-000001-a",
+   "value": {
+    "amount": 2500000.0,
+    "valueAddedTaxIncluded": true,
+    "currency": "UAH"
+   },
+   "tenderPeriod": {
+    "endDate": "2026-07-18T00:00:00+03:00",
+    "startDate": "2026-06-26T14:54:57.823879+03:00"
+   },
+   "status": "active.tendering"
+  }
+ ],
+ "utilities": [
+  {
+   "procuringEntity": {
+    "identifier": {
+     "legalName": "Глибочицька сільська рада Житомирського району Житомирської області",
+     "scheme": "UA-EDR",
+     "id": "04348289"
+    },
+    "address": {
+     "streetAddress": "вул. Михайла Грушевського, 2",
+     "postalCode": "12403",
+     "locality": "м. Житомир",
+     "countryName": "Україна",
+     "region": "Житомирська область"
+    },
+    "contactPoint": {
+     "name": "Катерина Кручок",
+     "telephone": "+380412406015",
+     "email": "406009@ukr.net"
+    },
+    "kind": "authority",
+    "name": "Управління комунального господарства Житомирської міської ради"
+   },
+   "enquiryPeriod": {
+    "clarificationsUntil": "2026-07-18T00:00:00+03:00",
+    "invalidationDate": "2026-06-26T14:55:54.194887+03:00",
+    "endDate": "2026-07-15T00:00:00+03:00",
+    "startDate": "2026-06-26T14:54:57.823879+03:00"
+   },
+   "title": "Капітальний ремонт мережі водопостачання, м. Житомир",
+   "tenderID": "UA-2026-06-21-000002-a",
+   "value": {
+    "amount": 900000.5,
+    "valueAddedTaxIncluded": true,
+    "currency": "UAH"
+   },
+   "tenderPeriod": {
+    "endDate": "2026-07-18T00:00:00+03:00",
+    "startDate": "2026-06-26T14:54:57.823879+03:00"
+   },
+   "status": "active.tendering"
+  }
+ ],
+ "transport": [],
+ "safety": []
+}

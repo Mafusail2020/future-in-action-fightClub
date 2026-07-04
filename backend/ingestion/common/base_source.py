@@ -18,6 +18,7 @@ class RawDoc:
     raion_slug: str | None = None       # None = city-wide
     url: str | None = None
     published_at: date | None = None
+    external_id: str | None = None      # stable per-origin id -> idempotent re-ingest
     meta: dict[str, Any] = field(default_factory=dict)
 
 

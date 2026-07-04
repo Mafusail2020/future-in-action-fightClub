@@ -20,6 +20,8 @@ def load(source: Source, output: SourceOutput) -> list[str]:
     doc_ids: list[str] = []
     for raw in output.docs:
         raion_id = resolve(raw.raion_slug)
+        if raw.external_id:  # re-scrape replaces the previous version of this doc
+            docs_repo.delete_by_external_id(source_id, raw.external_id)
         doc_id = docs_repo.insert_document({
             "source_id": source_id,
             "raion_id": raion_id,
@@ -28,6 +30,7 @@ def load(source: Source, output: SourceOutput) -> list[str]:
             "category": raw.category,
             "url": raw.url,
             "published_at": raw.published_at.isoformat() if raw.published_at else None,
+            "external_id": raw.external_id,
             "content": raw.content,
             "meta": raw.meta,
         })
@@ -49,19 +52,22 @@ def load(source: Source, output: SourceOutput) -> list[str]:
         print(f"  doc: {raw.title!r} -> {len(chunks)} chunks")
 
     if output.metrics:
-        mf_repo.insert_metrics([
-            {
-                "raion_id": resolve(m.get("raion_slug")),
+        metric_rows = []
+        for m in output.metrics:
+            slug = m.get("raion_slug")
+            if slug is not None and slug not in slug_map:
+                print(f"  ! metric '{m['metric']}': unknown raion '{slug}' — dropped")
+                continue
+            metric_rows.append({
+                "raion_id": slug_map.get(slug) if slug else None,  # None = city-wide
                 "metric": m["metric"],
                 "value": m["value"],
                 "unit": m.get("unit"),
                 "source_id": source_id,
                 "meta": m.get("meta", {}),
-            }
-            for m in output.metrics
-            if m.get("raion_slug") in slug_map
-        ])
-        print(f"  metrics: {len(output.metrics)}")
+            })
+        mf_repo.insert_metrics(metric_rows)
+        print(f"  metrics: {len(metric_rows)}")
 
     if output.features:
         mf_repo.insert_features([

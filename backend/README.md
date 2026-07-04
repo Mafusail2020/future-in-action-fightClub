@@ -40,8 +40,13 @@ uv run python -m scripts.generate_digests         # per-raion digests (run after
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-- `POST /api/v1/chat` — main agent endpoint: `{"session_id": null, "message": "..."}` →
+- `POST /api/v1/chat` — agent endpoint: `{"session_id": null, "message": "...", "model": "sonnet"|"haiku"}` →
   answer + citations + map GeoJSON. Interactive docs at `http://localhost:8000/docs`.
+- `POST /api/v1/chat/stream` — same request, SSE response: `token` deltas → `status`
+  (tool activity) → `final` (canonical payload with validated citations) / `error`.
+- `GET /api/v1/cities`, `GET /api/v1/cities/{id}/cases`, `GET /api/v1/cases/{id}` —
+  world-map cities and their solved-problem cases (demo data:
+  `uv run python -m scripts.seed_demo_cases`).
 - `GET /api/v1/raions` — areas + boundaries for the initial map render.
 - `GET /api/v1/raions/{slug}/digest` — current digest for one area.
 - `GET /health`

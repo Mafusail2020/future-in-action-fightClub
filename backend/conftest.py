@@ -1,1 +1,1 @@
-# Root conftest so pytest puts backend/ on sys.path (app/, ingestion/ are plain packages).
+# Anchors pytest's rootdir so `import app` resolves from the backend/ directory.

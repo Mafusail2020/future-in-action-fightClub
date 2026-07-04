@@ -1,5 +1,0 @@
-# One PDF URL per line (official documents, council decisions, budgets).
-# Lines starting with # are ignored. Files dropped directly into data/docs/ are also picked up.
-# Filename convention for local PDFs (optional, skips LLM classification):
-#   <category>__<raion-slug>__<any-title>.pdf   e.g. roads__krosha__repair-plan-2026.pdf
-# Category must be one of: roads, transport, commerce, demographics, utilities, safety

@@ -1,5 +1,0 @@
-# One news article URL per line. Lines starting with # are ignored.
-# Local Zhytomyr outlets that work well with trafilatura:
-#   https://www.zhitomir.info/  https://zhitomir-online.com/  https://suspilne.media/zhytomyr/
-# Example:
-# https://suspilne.media/zhytomyr/article-about-road-repairs/

@@ -1,7 +1,7 @@
+.env
 .venv/
 __pycache__/
 *.pyc
-.env
 .pytest_cache/
 .ruff_cache/
-data/raw/
+.DS_Store

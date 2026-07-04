@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.schemas.citations import CitationModel
@@ -8,11 +10,12 @@ class ChatRequest(BaseModel):
     session_id: str | None = Field(default=None, description="Omit on the first message; "
                                    "reuse the returned value to keep conversation context")
     message: str = Field(min_length=1)
+    model: Literal["sonnet", "haiku"] | None = Field(
+        default=None, description="Model alias for this turn; defaults to sonnet")
 
 
 class ChatResponse(BaseModel):
     session_id: str
-    intent: str
     answer: str                     # markdown with [n] citation markers
     citations: list[CitationModel] = []
     map: MapPayload

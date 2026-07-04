@@ -1,9 +1,8 @@
-from functools import lru_cache
+from typing import Callable
 
 
-@lru_cache
-def get_graph():
-    """Compiled agent graph, built once per process (holds the MemorySaver sessions)."""
-    from app.agent.graph import build_graph
+def get_agent_factory() -> Callable:
+    """Returns the per-model-alias agent factory (overridable in tests)."""
+    from app.agent.agent import get_agent
 
-    return build_graph()
+    return get_agent

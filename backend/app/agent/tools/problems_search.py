@@ -2,6 +2,7 @@ import json
 
 from langchain_core.tools import tool
 
+from app.agent.labels import label_items
 from app.db.repositories.raions import slug_id_map
 from app.rag import retriever
 
@@ -15,7 +16,7 @@ def problems_search(query: str, raion_slug: str | None = None,
         query: what to look for, in Ukrainian or English.
         raion_slug: limit to one city area (slug), or omit for city-wide search.
         category: one of roads|transport|commerce|demographics|utilities|safety, or omit.
-    Returns JSON with text fragments; each has an "id" usable for citations.
+    Returns JSON with text fragments; cite each via its "label" (e.g. [S3]).
     """
     raion_id = slug_id_map().get(raion_slug) if raion_slug else None
     items = [
@@ -42,4 +43,4 @@ def problems_search(query: str, raion_slug: str | None = None,
             }
             for row in retriever.search_digests(query, k=2)
         ]
-    return json.dumps({"items": items}, ensure_ascii=False, default=str)
+    return json.dumps({"items": label_items(items)}, ensure_ascii=False, default=str)

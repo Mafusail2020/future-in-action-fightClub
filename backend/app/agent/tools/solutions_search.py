@@ -2,6 +2,7 @@ import json
 
 from langchain_core.tools import tool
 
+from app.agent.labels import label_items
 from app.rag import retriever
 
 
@@ -15,7 +16,7 @@ def solutions_search(query: str, domain: str | None = None,
         query: the problem to find solutions for; include concrete Zhytomyr specifics.
         domain: one of roads|transport|commerce|demographics|utilities|safety, or omit.
         include_large_cities: set true only if the comparable-city search found nothing.
-    Returns JSON case fragments; each has an "id" usable for citations.
+    Returns JSON case fragments; cite each via its "label" (e.g. [S3]).
     """
     pop_band = None if include_large_cities else retriever.ZHYTOMYR_POP_BAND
     items = [
@@ -30,4 +31,4 @@ def solutions_search(query: str, domain: str | None = None,
         }
         for row in retriever.search_solutions(query, domain=domain, pop_band=pop_band)
     ]
-    return json.dumps({"items": items}, ensure_ascii=False, default=str)
+    return json.dumps({"items": label_items(items)}, ensure_ascii=False, default=str)

@@ -1,8 +1,6 @@
-from typing import Annotated, Any, Literal, TypedDict
+"""Shared shapes for citations and map actions (used by services and the API layer)."""
 
-from langgraph.graph.message import add_messages
-
-Intent = Literal["problems_qa", "compare", "solutions_advice", "chitchat"]
+from typing import Literal, TypedDict
 
 
 class Citation(TypedDict, total=False):
@@ -22,17 +20,3 @@ class MapAction(TypedDict, total=False):
     label: str
     geojson: dict               # GeoJSON FeatureCollection, coordinates [lng, lat]
     citation_ns: list[int]
-
-
-class AgentState(TypedDict, total=False):
-    messages: Annotated[list, add_messages]
-    query: str
-    intent: Intent
-    target_raions: list[str]            # raion slugs resolved by the classifier
-    problem_domain: str | None
-    retrieved_problems: list[dict[str, Any]]
-    retrieved_solutions: list[dict[str, Any]]
-    citations: list[Citation]
-    map_actions: list[MapAction]
-    viewport: dict[str, Any]
-    answer: str

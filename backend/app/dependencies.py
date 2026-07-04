@@ -1,9 +1,32 @@
-from functools import lru_cache
+"""FastAPI dependency providers. All lazy so the app boots without secrets (e.g. /health)."""
+
+from __future__ import annotations
+
+from app.agent.llm import LLM
+from app.agent.pipeline import Agent
+from app.db.client import get_supabase
+from app.db.repositories.cities import CitiesRepository
+from app.db.repositories.profiles import ProfilesRepository
+from app.db.repositories.solutions import SolutionsRepository
 
 
-@lru_cache
-def get_graph():
-    """Compiled agent graph, built once per process (holds the MemorySaver sessions)."""
-    from app.agent.graph import build_graph
+def get_cities_repo() -> CitiesRepository:
+    return CitiesRepository(get_supabase())
 
-    return build_graph()
+
+def get_solutions_repo() -> SolutionsRepository:
+    return SolutionsRepository(get_supabase())
+
+
+def get_profiles_repo() -> ProfilesRepository:
+    return ProfilesRepository(get_supabase())
+
+
+def get_agent() -> Agent:
+    client = get_supabase()
+    return Agent(
+        llm=LLM(),
+        cities=CitiesRepository(client),
+        solutions=SolutionsRepository(client),
+        profiles=ProfilesRepository(client),
+    )

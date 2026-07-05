@@ -101,3 +101,26 @@ class ChatRequest(BaseModel):
     model: Literal[
         "claude-sonnet-5", "claude-opus-4-8", "claude-haiku-4-5-20251001"
     ] | None = None
+
+
+# --- Map overlay modes ----------------------------------------------------------------
+
+class MapModeInfo(BaseModel):
+    """A mode available for a city, with rendering hints for the frontend."""
+
+    mode: str
+    label: str
+    kind: Literal["polygon", "line"]
+    value_prop: str  # feature property with the 0..1 score; prefix for temporal modes
+    temporal: bool = False
+    generated_at: str | None = None
+
+
+class MapLayerResponse(BaseModel):
+    """Precomputed GeoJSON overlay for one city + mode."""
+
+    mode: str
+    city_id: str
+    generated_at: str
+    meta: dict = Field(default_factory=dict)
+    feature_collection: dict

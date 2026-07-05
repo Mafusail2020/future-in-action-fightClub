@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     # RAG embeddings (agentic search tools degrade gracefully without it)
     openai_api_key: str = ""
 
+    # OSM geometry source for map layers; kumi.systems mirror is a drop-in fallback:
+    # OVERPASS_URL=https://overpass.kumi.systems/api/interpreter
+    overpass_url: str = "https://overpass-api.de/api/interpreter"
+
     allowed_origins: str = "http://localhost:5173,http://localhost:3000"
 
     @property

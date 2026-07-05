@@ -1,0 +1,49 @@
+{
+  "elements": [
+    {
+      "type": "way",
+      "id": 10,
+      "tags": { "highway": "secondary", "name": "вулиця Київська" },
+      "geometry": [
+        { "lat": 50.25, "lon": 28.65 },
+        { "lat": 50.251, "lon": 28.66123456 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 11,
+      "tags": { "highway": "primary", "name": "вулиця Київська" },
+      "geometry": [
+        { "lat": 50.251, "lon": 28.66123456 },
+        { "lat": 50.252, "lon": 28.67 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 12,
+      "tags": { "highway": "residential", "name": "вулиця Тиха" },
+      "geometry": [
+        { "lat": 50.26, "lon": 28.64 },
+        { "lat": 50.261, "lon": 28.641 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 13,
+      "tags": { "highway": "footway", "name": "Стежка" },
+      "geometry": [
+        { "lat": 50.2, "lon": 28.6 },
+        { "lat": 50.21, "lon": 28.61 }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 14,
+      "tags": { "highway": "residential" },
+      "geometry": [
+        { "lat": 50.22, "lon": 28.62 },
+        { "lat": 50.23, "lon": 28.63 }
+      ]
+    }
+  ]
+}

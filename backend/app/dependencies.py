@@ -6,6 +6,7 @@ from app.agent.llm import LLM
 from app.agent.pipeline import Agent
 from app.db.client import get_supabase
 from app.db.repositories.cities import CitiesRepository
+from app.db.repositories.map_layers import MapLayersRepository
 from app.db.repositories.profiles import ProfilesRepository
 from app.db.repositories.rag import RagRepository
 from app.db.repositories.solutions import SolutionsRepository
@@ -13,6 +14,10 @@ from app.db.repositories.solutions import SolutionsRepository
 
 def get_cities_repo() -> CitiesRepository:
     return CitiesRepository(get_supabase())
+
+
+def get_map_layers_repo() -> MapLayersRepository:
+    return MapLayersRepository(get_supabase())
 
 
 def get_solutions_repo() -> SolutionsRepository:

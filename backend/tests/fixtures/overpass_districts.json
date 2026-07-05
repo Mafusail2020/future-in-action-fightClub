@@ -1,0 +1,55 @@
+{
+  "elements": [
+    {
+      "type": "relation",
+      "id": 1,
+      "tags": { "boundary": "administrative", "admin_level": "9", "name": "Центр" },
+      "members": [
+        {
+          "type": "way",
+          "role": "outer",
+          "geometry": [
+            { "lat": 50.25, "lon": 28.65 },
+            { "lat": 50.25, "lon": 28.67 },
+            { "lat": 50.26, "lon": 28.67 }
+          ]
+        },
+        {
+          "type": "way",
+          "role": "outer",
+          "geometry": [
+            { "lat": 50.26, "lon": 28.67 },
+            { "lat": 50.26, "lon": 28.65 },
+            { "lat": 50.25, "lon": 28.65 }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "way",
+      "id": 2,
+      "tags": { "place": "suburb", "name": "Полісся" },
+      "geometry": [
+        { "lat": 50.27, "lon": 28.61234567 },
+        { "lat": 50.27, "lon": 28.63 },
+        { "lat": 50.28, "lon": 28.63 },
+        { "lat": 50.28, "lon": 28.61234567 },
+        { "lat": 50.27, "lon": 28.61234567 }
+      ]
+    },
+    {
+      "type": "node",
+      "id": 3,
+      "lat": 50.24,
+      "lon": 28.7,
+      "tags": { "place": "suburb", "name": "Корбутівка" }
+    },
+    {
+      "type": "node",
+      "id": 4,
+      "lat": 50.2,
+      "lon": 28.6,
+      "tags": { "place": "suburb" }
+    }
+  ]
+}

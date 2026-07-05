@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.domain.categories import Category
@@ -95,3 +97,7 @@ class ChatRequest(BaseModel):
     country: str | None = None
     history: list[ChatMessage] = Field(default_factory=list)
     limit: int = Field(default=6, ge=1, le=20)
+    # Per-request model override; None -> ANTHROPIC_MODEL from settings.
+    model: Literal[
+        "claude-sonnet-5", "claude-opus-4-8", "claude-haiku-4-5-20251001"
+    ] | None = None

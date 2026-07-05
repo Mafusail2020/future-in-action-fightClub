@@ -7,12 +7,17 @@ Plain functions orchestrated by the Agent class. No LangGraph. Matching is LLM-o
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 from app.agent.llm import LLM, load_prompt
+from app.agent.map_ops import MAP_OP_TOOL
+from app.agent.search_tools import SEARCH_CITY_TOOL, SEARCH_SOLUTIONS_TOOL, SearchToolkit
 from app.db.repositories.cities import CitiesRepository
 from app.db.repositories.profiles import ProfilesRepository
+from app.db.repositories.rag import RagRepository, city_key
 from app.db.repositories.solutions import SolutionsRepository
+from app.rag.chunking import chunk_text
+from app.rag.embeddings import embed_texts, embeddings_available
 from app.domain.categories import CATEGORIES
 from app.domain.models import ChatMessage, CityProfile, Match, Solution
 
@@ -80,11 +85,13 @@ class Agent:
         cities: CitiesRepository,
         solutions: SolutionsRepository,
         profiles: ProfilesRepository | None = None,
+        rag: RagRepository | None = None,
     ):
         self.llm = llm
         self.cities = cities
         self.solutions = solutions
         self.profiles = profiles
+        self.rag = rag
 
     # --- 1. Profile -----------------------------------------------------------------
 
@@ -107,7 +114,44 @@ class Agent:
 
         if self.profiles:
             self.profiles.set(city, country, profile.model_dump(mode="json"))
+        self._ingest_profile_doc(profile)
         return profile
+
+    def _ingest_profile_doc(self, profile: CityProfile) -> None:
+        """Make the generated profile searchable/citable via search_city_state."""
+        if not (self.rag and embeddings_available()):
+            return
+        try:
+            key = city_key(profile.city, profile.country)
+            parts = [
+                profile.summary or "",
+                "Notable challenges: " + "; ".join(profile.notable_challenges),
+                f"Population tier: {profile.population_tier}. Climate: {profile.climate}. "
+                f"Density: {profile.density}. Economy: {profile.economy}.",
+                "Problem domains: " + ", ".join(d.value for d in profile.problem_domains),
+            ]
+            chunks = chunk_text("\n\n".join(p for p in parts if p.strip()))
+            if not chunks:
+                return
+            self.rag.delete_profile_doc(key)
+            doc = self.rag.insert_city_doc({
+                "city_key": key,
+                "title": f"Профіль міста {profile.city} (AI)",
+                "kind": "profile",
+                "content": "\n\n".join(chunks),
+            })
+            embeddings = embed_texts(chunks)
+            self.rag.insert_city_doc_chunks([
+                {
+                    "doc_id": doc["id"],
+                    "city_key": key,
+                    "content": chunk,
+                    "embedding": embedding,
+                }
+                for chunk, embedding in zip(chunks, embeddings)
+            ])
+        except Exception as exc:  # profile generation must never fail on RAG hiccups
+            print(f"profile doc ingest failed: {exc}")
 
     # --- 2. Candidate selection -----------------------------------------------------
 
@@ -173,6 +217,8 @@ class Agent:
         profile: CityProfile | None,
         matches: list[Match],
         history: list[ChatMessage],
+        on_map_op: Callable[[dict], None] | None = None,
+        sources_out: dict[str, dict] | None = None,
     ) -> Iterator[str]:
         context_parts: list[str] = []
         if profile:
@@ -203,4 +249,41 @@ class Agent:
         user_content = "\n\n".join(context_parts) + f"\n\nUser message:\n{message}"
         messages.append({"role": "user", "content": user_content})
 
-        yield from self.llm.stream(system=load_prompt("synthesize.md"), messages=messages)
+        if on_map_op is None:
+            yield from self.llm.stream(system=load_prompt("synthesize.md"), messages=messages)
+            return
+
+        # Agentic mode: the city catalog (ids the model may reference), the
+        # direct_map tool, and — when embeddings are configured — RAG search tools.
+        catalog = [
+            {"id": c["id"], "name": c["name"], "country": c["country"]}
+            for c in self.cities.list_with_counts()
+        ]
+        messages[-1]["content"] += (
+            "\n\nCity catalog for the direct_map tool (id — name, country):\n"
+            + json.dumps(catalog, ensure_ascii=False)
+        )
+
+        tools = [MAP_OP_TOOL]
+        toolkit: SearchToolkit | None = None
+        if self.rag and embeddings_available():
+            key = city_key(profile.city, profile.country) if profile else None
+            toolkit = SearchToolkit(self.rag, key)
+            tools += [SEARCH_SOLUTIONS_TOOL, SEARCH_CITY_TOOL]
+
+        def on_tool(name: str, raw: dict) -> str | None:
+            if name == "direct_map":
+                on_map_op(raw)
+                return None  # -> "ok"
+            if toolkit:
+                return toolkit.run(name, raw)
+            return json.dumps({"error": f"unknown tool {name}"})
+
+        yield from self.llm.stream_with_tools(
+            system=load_prompt("synthesize.md"),
+            messages=messages,
+            tools=tools,
+            on_tool=on_tool,
+        )
+        if toolkit and sources_out is not None:
+            sources_out.update(toolkit.sources)

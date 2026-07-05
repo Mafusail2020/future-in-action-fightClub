@@ -7,6 +7,7 @@ from app.agent.pipeline import Agent
 from app.db.client import get_supabase
 from app.db.repositories.cities import CitiesRepository
 from app.db.repositories.profiles import ProfilesRepository
+from app.db.repositories.rag import RagRepository
 from app.db.repositories.solutions import SolutionsRepository
 
 
@@ -22,6 +23,10 @@ def get_profiles_repo() -> ProfilesRepository:
     return ProfilesRepository(get_supabase())
 
 
+def get_rag_repo() -> RagRepository:
+    return RagRepository(get_supabase())
+
+
 def get_agent() -> Agent:
     client = get_supabase()
     return Agent(
@@ -29,4 +34,5 @@ def get_agent() -> Agent:
         cities=CitiesRepository(client),
         solutions=SolutionsRepository(client),
         profiles=ProfilesRepository(client),
+        rag=RagRepository(client),
     )

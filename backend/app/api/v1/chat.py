@@ -1,8 +1,11 @@
 import json
+from queue import Empty, SimpleQueue
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
+from app.agent.llm import LLM
+from app.agent.map_ops import MAX_OPS_PER_TURN, validate_op
 from app.agent.pipeline import Agent
 from app.dependencies import get_agent
 from app.domain.models import ChatRequest
@@ -12,7 +15,13 @@ router = APIRouter(tags=["agent"])
 
 @router.post("/chat")
 def chat(req: ChatRequest, agent: Agent = Depends(get_agent)) -> StreamingResponse:
-    """Server-Sent Events. Emits a `matches` event (for the map), then `token` events, then `done`."""
+    """SSE: `matches` (map shortlist) → `token`/`map_op` interleaved → `done`.
+
+    `map_op` events are the model directing the map (validated against the city
+    catalog; invalid ops are dropped, never break the stream).
+    """
+    if req.model:  # per-request model override (agent instance is per-request)
+        agent.llm = LLM(model=req.model)
 
     def event_stream():
         try:
@@ -26,8 +35,47 @@ def chat(req: ChatRequest, agent: Agent = Depends(get_agent)) -> StreamingRespon
                 }
                 yield f"event: matches\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
-            for token in agent.answer_stream(req.message, profile, matches, req.history):
+            known_ids = {c["id"] for c in agent.cities.list_with_counts()}
+            ops_sent = 0
+            pending_ops: SimpleQueue[dict] = SimpleQueue()
+            sources: dict[str, dict] = {}
+
+            def on_map_op(raw: dict) -> None:
+                nonlocal ops_sent
+                if ops_sent >= MAX_OPS_PER_TURN:
+                    return
+                op = validate_op(raw, known_ids)
+                if op is not None:
+                    ops_sent += 1
+                    pending_ops.put(op)
+
+            for token in agent.answer_stream(
+                req.message,
+                profile,
+                matches,
+                req.history,
+                on_map_op=on_map_op,
+                sources_out=sources,
+            ):
+                # Ops queue up during tool rounds; flush them at token boundaries
+                # so the map moves in step with the prose.
+                while True:
+                    try:
+                        op = pending_ops.get_nowait()
+                    except Empty:
+                        break
+                    yield f"event: map_op\ndata: {json.dumps(op, ensure_ascii=False)}\n\n"
                 yield f"event: token\ndata: {json.dumps({'text': token}, ensure_ascii=False)}\n\n"
+
+            while True:  # trailing ops after the last token
+                try:
+                    op = pending_ops.get_nowait()
+                except Empty:
+                    break
+                yield f"event: map_op\ndata: {json.dumps(op, ensure_ascii=False)}\n\n"
+
+            if sources:  # label -> source map for [S#] citation chips
+                yield f"event: sources\ndata: {json.dumps(sources, ensure_ascii=False)}\n\n"
 
             yield "event: done\ndata: {}\n\n"
         except Exception as exc:  # surface as an SSE event instead of a dead connection

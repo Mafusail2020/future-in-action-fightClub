@@ -7,19 +7,25 @@ city; an agent builds a profile of it and its likely problems, then recommends s
 ## Stack
 
 - **FastAPI** (Python 3.12, managed with `uv`)
-- **Supabase** (plain Postgres — no pgvector)
-- **Claude** via the Anthropic SDK for the agent (profile / match / chat)
-- Matching is **LLM-over-catalog**: the whole candidate set is handed to Claude — no embeddings.
+- **Supabase** (Postgres + pgvector for the agent's RAG tools)
+- **Claude** via the Anthropic SDK for the agent (profile / match / chat / map director)
+- Matching is **LLM-over-catalog** (whole candidate set ranked by Claude); on top of it the
+  chat agent has **agentic RAG tools** (OpenAI `text-embedding-3-small` @1536) it calls
+  mid-answer, with `[S#]` source labels the client renders as citation chips.
 
 ## Architecture
 
 ```
-user city ─▶ build_profile (Claude) ─▶ select_candidates (filter catalog by category)
-          ─▶ match (Claude ranks the catalog) ─▶ synthesize (Claude, streamed)
-Supabase: cities, solutions, profiles(cache)   REST endpoints serve the map & detail views
+user city ─▶ build_profile (Claude, cached + auto-ingested as a searchable doc)
+          ─▶ select_candidates (filter catalog by category)
+          ─▶ match (Claude ranks the catalog) ─▶ synthesize (Claude, streamed, with tools:
+               direct_map · search_solutions · search_city_state)
+Supabase: cities, solutions(+chunks), city_docs(+chunks), profiles(cache)
 ```
 
-Key modules: `app/agent/pipeline.py` (orchestration), `app/agent/llm.py` (Anthropic wrapper),
+Key modules: `app/agent/pipeline.py` (orchestration), `app/agent/llm.py` (Anthropic wrapper +
+tool-use streaming loop), `app/agent/map_ops.py` (validated map vocabulary),
+`app/agent/search_tools.py` (RAG tools + [S#] registry), `app/rag/` (embeddings, chunking),
 `app/db/repositories/` (data access), `app/api/v1/` (routes), `app/domain/` (models + categories).
 
 ## Setup
@@ -31,14 +37,18 @@ cp .env.example .env        # then fill in the values
 ```
 
 Fill `.env`: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `ANTHROPIC_API_KEY` (optionally
-`ANTHROPIC_MODEL`, default `claude-sonnet-5`).
+`ANTHROPIC_MODEL`, default `claude-sonnet-5`), and `OPENAI_API_KEY` for the RAG search
+tools (without it the agent still works — search tools just stay off).
 
-Apply the schema: open the Supabase SQL editor and run `app/db/migrations/0001_schema.sql`.
+Apply the schema: open the Supabase SQL editor and run `app/db/migrations/0001_schema.sql`
+(or `0002_reset_from_legacy.sql` if the project held the pre-pivot tables), then
+`app/db/migrations/0003_rag.sql`.
 
-Load the seed data:
+Load the seed data and embed it:
 
 ```bash
 uv run python -m scripts.load_seed
+uv run python -m scripts.embed_solutions   # needs OPENAI_API_KEY
 ```
 
 Run the API:

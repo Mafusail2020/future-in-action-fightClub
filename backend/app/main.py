@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import categories, chat, cities, health, match, profile, solutions
+from app.api.v1 import categories, chat, cities, city_docs, health, match, profile, solutions
 from app.config import get_settings
 
 
@@ -24,7 +24,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health.router)
-    for module in (cities, solutions, categories, profile, match, chat):
+    for module in (cities, solutions, categories, profile, match, chat, city_docs):
         app.include_router(module.router, prefix="/api/v1")
 
     return app

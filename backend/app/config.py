@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-5"
 
+    # RAG embeddings (agentic search tools degrade gracefully without it)
+    openai_api_key: str = ""
+
     allowed_origins: str = "http://localhost:5173,http://localhost:3000"
 
     @property

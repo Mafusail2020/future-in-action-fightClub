@@ -1,58 +1,52 @@
-import { Layer, Source } from 'react-map-gl/maplibre'
+import { Marker, useMap } from 'react-map-gl/maplibre'
 
 import { useMapStore } from '../../stores/mapStore'
 
 /**
- * Renders the latest chat answer's map payload: amber raion highlights and
- * point markers. Features whose citation is hovered in the chat glow brighter —
- * the map and the citations are the same evidence.
+ * Matched solutions from the latest chat turn, as glowing markers on their
+ * cities. A match card hovered in the chat lights its marker — the chat
+ * shortlist and the map are the same evidence.
  */
-export function ChatLayers() {
-  const chatMap = useMapStore((s) => s.chatMap)
-  const activeCitation = useMapStore((s) => s.activeCitation)
-
-  if (!chatMap) return null
+export function MatchMarkers() {
+  const matches = useMapStore((s) => s.matches)
+  const activeSolutionId = useMapStore((s) => s.activeSolutionId)
+  const { current: map } = useMap()
 
   return (
     <>
-      {chatMap.actions.map((action, i) => {
-        const isActive =
-          activeCitation !== null && action.citation_ns.includes(activeCitation)
-
-        if (action.type === 'highlight_raion') {
-          return (
-            <Source key={`raion-${i}`} type="geojson" data={action.geojson}>
-              <Layer
-                type="fill"
-                paint={{
-                  'fill-color': '#f5b84c',
-                  'fill-opacity': isActive ? 0.32 : 0.14,
-                }}
-              />
-              <Layer
-                type="line"
-                paint={{
-                  'line-color': '#f5b84c',
-                  'line-width': isActive ? 2.4 : 1.4,
-                  'line-opacity': isActive ? 1 : 0.75,
-                }}
-              />
-            </Source>
-          )
-        }
+      {matches.map((match) => {
+        const city = match.solution?.city
+        if (!city) return null
+        const isActive = activeSolutionId === match.solution_id
         return (
-          <Source key={`points-${i}`} type="geojson" data={action.geojson}>
-            <Layer
-              type="circle"
-              paint={{
-                'circle-radius': isActive ? 8 : 5.5,
-                'circle-color': '#f5b84c',
-                'circle-opacity': isActive ? 0.95 : 0.8,
-                'circle-stroke-width': 1.5,
-                'circle-stroke-color': '#060d1a',
-              }}
-            />
-          </Source>
+          <Marker key={match.solution_id} longitude={city.lng} latitude={city.lat} anchor="bottom">
+            <button
+              type="button"
+              aria-label={`Рішення: ${match.solution!.title} — ${city.name}`}
+              data-active={isActive}
+              onClick={() => map?.flyTo({ center: [city.lng, city.lat], zoom: 6, duration: 1200 })}
+              className={`flex flex-col items-center transition-transform ${
+                isActive ? 'scale-125' : ''
+              }`}
+            >
+              <span
+                className={`rounded border px-1.5 py-px font-mono text-[10px] whitespace-nowrap transition-colors ${
+                  isActive
+                    ? 'border-amber bg-amber text-ink-950'
+                    : 'border-amber/50 bg-ink-900/90 text-amber'
+                }`}
+              >
+                {Math.round(match.score * 100)}%
+              </span>
+              <span
+                aria-hidden
+                className={`mt-0.5 size-2.5 rounded-full bg-amber ${
+                  isActive ? '' : 'animate-pulse-soft'
+                }`}
+                style={{ boxShadow: '0 0 8px rgba(245, 184, 76, 0.9)' }}
+              />
+            </button>
+          </Marker>
         )
       })}
     </>

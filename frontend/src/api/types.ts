@@ -1,88 +1,88 @@
-/** Mirrors of backend/app/schemas — keep in sync by hand. */
+/** Mirrors of backend/app/domain/models.py — keep in sync by hand. */
 
-import type { FeatureCollection, Geometry } from 'geojson'
+export type Category =
+  | 'transport'
+  | 'energy'
+  | 'housing'
+  | 'water'
+  | 'waste'
+  | 'safety'
+  | 'health'
+  | 'environment'
+  | 'digital'
+  | 'governance'
+  | 'economy'
+  | 'climate_resilience'
 
-export interface CityOut {
+export interface City {
   id: string
-  slug: string | null
   name: string
   country: string
-  lat: number | null
-  lng: number | null
+  region: string | null
+  lat: number
+  lng: number
   population: number | null
-  case_count: number
+  area_km2: number | null
+  climate: string | null
+  solution_count: number | null
 }
 
-export interface CaseSummaryOut {
+export interface Solution {
   id: string
+  city_id: string
+  category: Category
   title: string
-  problem_domain: string
+  problem: string
+  solution: string
+  outcome: string | null
+  cost: string | null
   year_start: number | null
   year_end: number | null
-  outcome: string | null
-}
-
-export interface CaseDetailOut extends CaseSummaryOut {
-  problem_summary: string | null
-  solution_summary: string | null
-  cost_estimate: string | null
   source_urls: string[]
-  full_text: string | null
-  city: { id: string; name: string; country: string; population: number | null }
+  tags: string[]
+  city: City | null
 }
 
-export interface RaionOut {
-  id: string
-  slug: string
-  name_uk: string
-  name_en: string | null
-  centroid_lat: number | null
-  centroid_lng: number | null
-  boundary_geojson: Geometry | null
-  population: number | null
+export interface CityDetail {
+  city: City
+  solutions: Solution[]
 }
 
-export interface Citation {
-  n: number
-  chunk_id: string
-  source_type: 'document' | 'digest' | 'metric' | 'feature' | 'solution_case'
-  title: string
-  url: string | null
-  snippet: string
-  raion: string | null
-  city: string | null
-  published_at: string | null
+export interface CityProfile {
+  city: string
+  country: string
+  region: string | null
+  population_tier: string | null
+  climate: string | null
+  density: string | null
+  economy: string | null
+  problem_domains: Category[]
+  notable_challenges: string[]
+  summary: string | null
 }
 
-export interface MapAction {
-  type: 'highlight_raion' | 'point'
+export interface Match {
+  solution_id: string
+  score: number
+  rationale: string
+  adaptation_notes: string | null
+  solution: Solution | null
+}
+
+export interface MatchesEvent {
+  profile: CityProfile
+  matches: Match[]
+}
+
+export interface CategoryOption {
+  value: Category
   label: string
-  geojson: FeatureCollection
-  citation_ns: number[]
 }
 
-export interface Viewport {
-  center: [number, number] // [lng, lat]
-  zoom: number
+export interface ChatRequestBody {
+  message: string
+  city?: string
+  country?: string
+  history: { role: 'user' | 'assistant'; content: string }[]
+  limit?: number
 }
-
-export interface MapPayload {
-  actions: MapAction[]
-  viewport: Viewport
-}
-
-export type ModelAlias = 'sonnet' | 'haiku'
-
-export interface ChatFinal {
-  session_id: string
-  answer: string
-  citations: Citation[]
-  map: MapPayload
-  meta: { latency_ms: number; model: ModelAlias }
-}
-
-export type StreamEvent =
-  | { event: 'token'; data: { text: string } }
-  | { event: 'status'; data: { tool: string } }
-  | { event: 'final'; data: ChatFinal }
-  | { event: 'error'; data: { session_id: string; message: string } }

@@ -1,21 +1,25 @@
-import type { ChatFinal, ModelAlias, StreamEvent } from './types'
+import type { ChatRequestBody, MatchesEvent } from './types'
 
 export interface StreamHandlers {
+  onMatches: (payload: MatchesEvent) => void
   onToken: (text: string) => void
-  onStatus: (tool: string) => void
-  onFinal: (payload: ChatFinal) => void
+  onDone: () => void
   onError: (message: string) => void
 }
 
-/** POST + ReadableStream SSE parser (EventSource can't POST). */
+/**
+ * POST /api/v1/chat consumed as SSE (fetch + ReadableStream — EventSource can't POST).
+ * Event order from the backend: `matches` (optional, when city+country sent) →
+ * `token`* → `done`; `error` may replace any of it.
+ */
 export async function streamChat(
-  body: { session_id: string | null; message: string; model: ModelAlias },
+  body: ChatRequestBody,
   handlers: StreamHandlers,
   signal: AbortSignal,
 ): Promise<void> {
   let response: Response
   try {
-    response = await fetch('/api/v1/chat/stream', {
+    response = await fetch('/api/v1/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -35,6 +39,7 @@ export async function streamChat(
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let finished = false
 
   const dispatch = (frame: string) => {
     let event = ''
@@ -43,12 +48,16 @@ export async function streamChat(
       if (line.startsWith('event: ')) event = line.slice(7).trim()
       else if (line.startsWith('data: ')) data += line.slice(6)
     }
-    if (!event || !data) return
-    const parsed = { event, data: JSON.parse(data) } as StreamEvent
-    if (parsed.event === 'token') handlers.onToken(parsed.data.text)
-    else if (parsed.event === 'status') handlers.onStatus(parsed.data.tool)
-    else if (parsed.event === 'final') handlers.onFinal(parsed.data)
-    else if (parsed.event === 'error') handlers.onError(parsed.data.message)
+    if (!event) return
+    if (event === 'matches') handlers.onMatches(JSON.parse(data) as MatchesEvent)
+    else if (event === 'token') handlers.onToken((JSON.parse(data) as { text: string }).text)
+    else if (event === 'done') {
+      finished = true
+      handlers.onDone()
+    } else if (event === 'error') {
+      finished = true
+      handlers.onError((JSON.parse(data) as { message: string }).message)
+    }
   }
 
   try {
@@ -64,6 +73,10 @@ export async function streamChat(
       }
     }
     if (buffer.trim()) dispatch(buffer)
+    if (!finished) {
+      // stream closed without done/error (backend crash mid-stream)
+      handlers.onError('З’єднання обірвалося під час відповіді')
+    }
   } catch (error) {
     if ((error as Error).name !== 'AbortError') {
       handlers.onError('З’єднання обірвалося під час відповіді')

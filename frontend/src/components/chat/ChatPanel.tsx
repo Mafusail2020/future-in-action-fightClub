@@ -1,13 +1,10 @@
+import { useState } from 'react'
+
 import { useChat } from '../../hooks/useChat'
 import { useChatStore } from '../../stores/chatStore'
 import { Composer } from './Composer'
 import { HistorySidebar } from './HistorySidebar'
 import { MessageList } from './MessageList'
-
-const MODELS = [
-  { value: 'sonnet', label: 'Sonnet 4.6 · точніше' },
-  { value: 'haiku', label: 'Haiku 4.5 · швидше' },
-] as const
 
 export function ChatPanel() {
   const { send, stop, regenerate, editAndResend } = useChat()
@@ -15,9 +12,6 @@ export function ChatPanel() {
   const toggleHistory = useChatStore((s) => s.toggleHistory)
   const toggleChat = useChatStore((s) => s.toggleChat)
   const newSession = useChatStore((s) => s.newSession)
-  const model = useChatStore((s) => s.model)
-  const setModel = useChatStore((s) => s.setModel)
-  const isStreaming = useChatStore((s) => s.isStreaming)
 
   return (
     <section
@@ -36,19 +30,7 @@ export function ChatPanel() {
         </button>
         <h1 className="font-display text-sm font-semibold tracking-wide">Радник</h1>
 
-        <select
-          value={model}
-          onChange={(e) => setModel(e.target.value as typeof model)}
-          disabled={isStreaming}
-          aria-label="Модель для відповідей"
-          className="ml-auto rounded-md border border-line bg-ink-800 px-2 py-1 text-[11px] text-muted outline-none hover:text-paper focus-visible:border-amber disabled:opacity-50"
-        >
-          {MODELS.map((m) => (
-            <option key={m.value} value={m.value}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+        <HomeCityChip />
 
         <button
           type="button"
@@ -80,5 +62,71 @@ export function ChatPanel() {
         </>
       )}
     </section>
+  )
+}
+
+/** The user's home city — every question is matched against it. Click to change. */
+function HomeCityChip() {
+  const homeCity = useChatStore((s) => s.homeCity)
+  const setHomeCity = useChatStore((s) => s.setHomeCity)
+  const isStreaming = useChatStore((s) => s.isStreaming)
+  const [editing, setEditing] = useState(false)
+  const [city, setCity] = useState(homeCity.city)
+  const [country, setCountry] = useState(homeCity.country)
+
+  if (editing) {
+    return (
+      <form
+        className="ml-auto flex items-center gap-1"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (city.trim() && country.trim()) {
+            setHomeCity(city.trim(), country.trim())
+            setEditing(false)
+          }
+        }}
+      >
+        <input
+          autoFocus
+          value={city}
+          onChange={(e) => setCity(e.target.value)}
+          onKeyDown={(e) => e.key === 'Escape' && setEditing(false)}
+          placeholder="Місто"
+          aria-label="Ваше місто"
+          className="w-24 rounded-md border border-amber/60 bg-ink-800 px-2 py-1 text-[11px] outline-none"
+        />
+        <input
+          value={country}
+          onChange={(e) => setCountry(e.target.value)}
+          onKeyDown={(e) => e.key === 'Escape' && setEditing(false)}
+          placeholder="Країна"
+          aria-label="Ваша країна"
+          className="w-20 rounded-md border border-line bg-ink-800 px-2 py-1 text-[11px] outline-none focus-visible:border-amber"
+        />
+        <button
+          type="submit"
+          className="rounded-md bg-amber px-2 py-1 text-[11px] font-semibold text-ink-950"
+        >
+          OK
+        </button>
+      </form>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setCity(homeCity.city)
+        setCountry(homeCity.country)
+        setEditing(true)
+      }}
+      disabled={isStreaming}
+      aria-label={`Ваше місто: ${homeCity.city}, ${homeCity.country}. Натисніть, щоб змінити`}
+      className="ml-auto flex items-center gap-1.5 rounded-md border border-line bg-ink-800 px-2 py-1 text-[11px] text-muted hover:border-amber hover:text-paper disabled:opacity-50"
+    >
+      <span aria-hidden className="size-1.5 rounded-full bg-cyan" />
+      {homeCity.city}
+    </button>
   )
 }

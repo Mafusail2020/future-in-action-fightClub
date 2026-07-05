@@ -2,20 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { ChatMessage } from '../../stores/chatStore'
 import { useChatStore } from '../../stores/chatStore'
+import { MatchCard } from './MatchCard'
 import { AssistantMarkdown } from './Message'
 
-const TOOL_LABELS: Record<string, string> = {
-  problems_search: 'шукає дані про місто',
-  raion_stats: 'дивиться показники',
-  geo_lookup: 'шукає об’єкти на мапі',
-  solutions_search: 'шукає кейси інших міст',
-}
-
 const SUGGESTIONS = [
-  'Які проблеми з дорогами у Крошні?',
-  'Порівняй Богунію та Центр за комерцією',
-  'Яка якість повітря в місті зараз?',
-  'Як інші міста вирішували проблему ям на дорогах?',
+  'Які рішення підійдуть моєму місту найбільше?',
+  'Як інші міста боролися з заторами?',
+  'Що робили міста з модернізацією опалення?',
+  'Покажи рішення з безпеки для середнього міста',
 ]
 
 export function MessageList({
@@ -44,7 +38,7 @@ export function MessageList({
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-8">
         <p className="font-display text-center text-base text-muted">
-          Спитайте про стан міста — відповім із джерелами й покажу на мапі
+          Спитайте — знайду перевірені рішення інших міст і покажу їх на мапі
         </p>
         <div className="flex w-full max-w-sm flex-col gap-2">
           {SUGGESTIONS.map((text) => (
@@ -149,7 +143,7 @@ function MessageRow({
             </button>
           </div>
           <p className="px-1.5 pb-1 text-[11px] text-faint">
-            Редагування обриває розмову з цього місця й починає новий контекст
+            Редагування обриває розмову з цього місця
           </p>
         </div>
       )
@@ -173,25 +167,27 @@ function MessageRow({
     )
   }
 
+  const matches = message.matches ?? []
+
   return (
     <div className="mr-2">
-      {(message.tools ?? []).length > 0 && (
-        <div className="mb-1.5 flex flex-wrap gap-1.5" aria-label="Використані інструменти">
-          {message.tools!.map((tool) => (
-            <span
-              key={tool}
-              className="rounded border border-cyan/35 bg-cyan/10 px-1.5 py-px font-mono text-[10px] text-cyan"
-            >
-              {TOOL_LABELS[tool] ?? tool}
-            </span>
+      {matches.length > 0 && (
+        <div className="mb-2 flex flex-col gap-1.5" aria-label="Підібрані рішення">
+          <p className="font-mono text-[10px] tracking-[0.14em] text-faint uppercase">
+            Підібрані рішення · {matches.length} · показані на мапі
+          </p>
+          {matches.map((match) => (
+            <MatchCard key={match.solution_id} match={match} />
           ))}
         </div>
       )}
 
       {message.content ? (
-        <AssistantMarkdown content={message.content} citations={message.citations} />
+        <AssistantMarkdown content={message.content} />
       ) : message.streaming ? (
-        <p className="animate-pulse-soft text-sm text-muted">Думаю…</p>
+        <p className="animate-pulse-soft text-sm text-muted">
+          {matches.length > 0 ? 'Пояснюю…' : 'Аналізую місто та підбираю рішення…'}
+        </p>
       ) : null}
 
       {message.streaming && message.content && (

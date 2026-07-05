@@ -1,36 +1,37 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { apiGet } from './client'
-import type { CaseDetailOut, CaseSummaryOut, CityOut, RaionOut } from './types'
+import type { CategoryOption, City, CityDetail, Solution } from './types'
 
 export function useCities() {
   return useQuery({
     queryKey: ['cities'],
-    queryFn: () => apiGet<CityOut[]>('/cities'),
+    queryFn: () => apiGet<City[]>('/cities'),
     staleTime: 5 * 60_000,
   })
 }
 
-export function useCityCases(cityId: string | null) {
+/** City + all its solutions in one call — powers the click-city panel. */
+export function useCityDetail(cityId: string | null) {
   return useQuery({
-    queryKey: ['city-cases', cityId],
-    queryFn: () => apiGet<CaseSummaryOut[]>(`/cities/${cityId}/cases`),
+    queryKey: ['city', cityId],
+    queryFn: () => apiGet<CityDetail>(`/cities/${cityId}`),
     enabled: cityId !== null,
   })
 }
 
-export function useCase(caseId: string | undefined) {
+export function useSolution(solutionId: string | undefined) {
   return useQuery({
-    queryKey: ['case', caseId],
-    queryFn: () => apiGet<CaseDetailOut>(`/cases/${caseId}`),
-    enabled: !!caseId,
+    queryKey: ['solution', solutionId],
+    queryFn: () => apiGet<Solution>(`/solutions/${solutionId}`),
+    enabled: !!solutionId,
   })
 }
 
-export function useRaions() {
+export function useCategories() {
   return useQuery({
-    queryKey: ['raions'],
-    queryFn: () => apiGet<RaionOut[]>('/raions'),
-    staleTime: 30 * 60_000,
+    queryKey: ['categories'],
+    queryFn: () => apiGet<CategoryOption[]>('/categories'),
+    staleTime: Infinity,
   })
 }

@@ -1,6 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
-import { CasePage } from './components/case/CasePage'
+import { SolutionPage } from './components/case/CasePage'
 import { AppShell } from './components/layout/AppShell'
 
 export default function App() {
@@ -8,7 +8,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<AppShell />} />
-        <Route path="/case/:id" element={<CasePage />} />
+        <Route path="/solution/:id" element={<SolutionPage />} />
       </Routes>
     </BrowserRouter>
   )

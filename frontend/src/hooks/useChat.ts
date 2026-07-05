@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react'
 
 import { streamChat } from '../api/stream'
-import { useChatStore } from '../stores/chatStore'
+import { historyFor, useChatStore } from '../stores/chatStore'
 import { useMapStore } from '../stores/mapStore'
 
 /** Orchestrates one streaming turn: optimistic messages -> SSE -> stores. */
@@ -18,36 +18,32 @@ export function useChat() {
     const session = useChatStore.getState().sessions.find((s) => s.id === sessionId)
     if (!session) return
 
+    const history = historyFor(session) // before appending the new message
     store.appendMessage(sessionId, { id: crypto.randomUUID(), role: 'user', content: message })
     store.appendMessage(sessionId, {
       id: crypto.randomUUID(),
       role: 'assistant',
       content: '',
       streaming: true,
-      tools: [],
     })
     store.setStreaming(true)
 
     const controller = new AbortController()
     abortRef.current = controller
+    const { city, country } = store.homeCity
 
     void streamChat(
-      { session_id: session.serverSessionId, message, model: store.model },
+      { message, city: city || undefined, country: country || undefined, history, limit: 6 },
       {
+        onMatches: ({ profile, matches }) => {
+          useChatStore.getState().updateLastAssistant(sessionId, { matches, profile })
+          useMapStore.getState().setMatches(matches)
+        },
         onToken: (t) => useChatStore.getState().appendToken(sessionId, t),
-        onStatus: (tool) => useChatStore.getState().appendTool(sessionId, tool),
-        onFinal: (final) => {
+        onDone: () => {
           const chat = useChatStore.getState()
-          chat.updateLastAssistant(sessionId, {
-            content: final.answer,
-            citations: final.citations,
-            map: final.map,
-            streaming: false,
-          })
+          chat.updateLastAssistant(sessionId, { streaming: false })
           chat.setStreaming(false)
-          if (final.map.actions.length > 0) {
-            useMapStore.getState().setChatMap(final.map)
-          }
         },
         onError: (msg) => {
           const chat = useChatStore.getState()
@@ -59,7 +55,7 @@ export function useChat() {
     ).finally(() => {
       const chat = useChatStore.getState()
       if (chat.isStreaming) {
-        // stream ended without a final/error event (e.g. user aborted)
+        // aborted before done/error arrived
         chat.updateLastAssistant(sessionId, { streaming: false })
         chat.setStreaming(false)
       }
@@ -70,7 +66,7 @@ export function useChat() {
     abortRef.current?.abort()
   }, [])
 
-  /** Resend the last user message on the same server thread. */
+  /** Resend the last user message (history is client-owned, so this is a clean re-ask). */
   const regenerate = useCallback(() => {
     const store = useChatStore.getState()
     const session = store.sessions.find((s) => s.id === store.activeSessionId)
@@ -82,18 +78,13 @@ export function useChat() {
     send(text)
   }, [send])
 
-  /**
-   * Edit a past user message: history is truncated at that point and the turn
-   * re-runs on a FRESH server thread (MemorySaver can't rewind) — earlier
-   * context is intentionally dropped server-side.
-   */
+  /** Edit a past user message: truncate the local history there and resend. */
   const editAndResend = useCallback(
     (messageIndex: number, newText: string) => {
       const store = useChatStore.getState()
       const session = store.sessions.find((s) => s.id === store.activeSessionId)
       if (!session || store.isStreaming) return
       store.truncateFrom(session.id, messageIndex)
-      store.resetServerThread(session.id)
       send(newText)
     },
     [send],

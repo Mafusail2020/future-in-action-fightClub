@@ -1,25 +1,21 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import type { Citation, MapPayload, ModelAlias } from '../api/types'
+import type { CityProfile, Match } from '../api/types'
 
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
-  citations?: Citation[]
-  map?: MapPayload
-  /** Assistant message currently being streamed. */
+  /** Solutions matched for this turn (arrive via the `matches` SSE event). */
+  matches?: Match[]
+  profile?: CityProfile
   streaming?: boolean
-  /** Tools the agent has invoked while producing this message. */
-  tools?: string[]
   error?: string
 }
 
 export interface ChatSession {
   id: string
-  /** Backend thread id; regenerated when the user edits history (threads can't rewind). */
-  serverSessionId: string
   title: string
   createdAt: number
   messages: ChatMessage[]
@@ -28,25 +24,23 @@ export interface ChatSession {
 interface ChatState {
   sessions: ChatSession[]
   activeSessionId: string | null
-  model: ModelAlias
+  /** The user's home city — sent with every message so the agent matches against it. */
+  homeCity: { city: string; country: string }
   chatOpen: boolean
   historyOpen: boolean
   isStreaming: boolean
 
-  setModel: (model: ModelAlias) => void
+  setHomeCity: (city: string, country: string) => void
   toggleChat: () => void
   toggleHistory: () => void
   newSession: () => string
   openSession: (id: string) => void
   deleteSession: (id: string) => void
   renameSession: (id: string, title: string) => void
-  /** Drop messages from index `from` on (for edit); returns the removed user text. */
   truncateFrom: (sessionId: string, from: number) => void
-  resetServerThread: (sessionId: string) => void
   appendMessage: (sessionId: string, message: ChatMessage) => void
   updateLastAssistant: (sessionId: string, patch: Partial<ChatMessage>) => void
   appendToken: (sessionId: string, text: string) => void
-  appendTool: (sessionId: string, tool: string) => void
   setStreaming: (value: boolean) => void
 }
 
@@ -57,12 +51,12 @@ export const useChatStore = create<ChatState>()(
     (set, get) => ({
       sessions: [],
       activeSessionId: null,
-      model: 'sonnet',
+      homeCity: { city: 'Zhytomyr', country: 'Ukraine' },
       chatOpen: true,
       historyOpen: false,
       isStreaming: false,
 
-      setModel: (model) => set({ model }),
+      setHomeCity: (city, country) => set({ homeCity: { city, country } }),
       toggleChat: () => set((s) => ({ chatOpen: !s.chatOpen })),
       toggleHistory: () => set((s) => ({ historyOpen: !s.historyOpen })),
 
@@ -70,7 +64,6 @@ export const useChatStore = create<ChatState>()(
         const id = uuid()
         const session: ChatSession = {
           id,
-          serverSessionId: uuid(),
           title: 'Нова розмова',
           createdAt: Date.now(),
           messages: [],
@@ -97,12 +90,6 @@ export const useChatStore = create<ChatState>()(
         set((s) => ({
           sessions: s.sessions.map((x) =>
             x.id === sessionId ? { ...x, messages: x.messages.slice(0, from) } : x,
-          ),
-        })),
-      resetServerThread: (sessionId) =>
-        set((s) => ({
-          sessions: s.sessions.map((x) =>
-            x.id === sessionId ? { ...x, serverSessionId: uuid() } : x,
           ),
         })),
 
@@ -138,17 +125,10 @@ export const useChatStore = create<ChatState>()(
           get().updateLastAssistant(sessionId, { content: last.content + text })
         }
       },
-      appendTool: (sessionId, tool) => {
-        const session = get().sessions.find((x) => x.id === sessionId)
-        const last = session?.messages.at(-1)
-        if (last?.role === 'assistant' && !(last.tools ?? []).includes(tool)) {
-          get().updateLastAssistant(sessionId, { tools: [...(last.tools ?? []), tool] })
-        }
-      },
       setStreaming: (value) => set({ isStreaming: value }),
     }),
     {
-      name: 'zhytomyr-adviser-chat',
+      name: 'city-solutions-chat',
       partialize: (s) => ({
         sessions: s.sessions.map((x) => ({
           ...x,
@@ -156,9 +136,18 @@ export const useChatStore = create<ChatState>()(
           messages: x.messages.map(({ streaming: _streaming, ...m }) => m),
         })),
         activeSessionId: s.activeSessionId,
-        model: s.model,
+        homeCity: s.homeCity,
         chatOpen: s.chatOpen,
       }),
     },
   ),
 )
+
+/** History payload for the backend: prior completed turns, first message a user one. */
+export function historyFor(session: ChatSession): { role: 'user' | 'assistant'; content: string }[] {
+  const turns = session.messages
+    .filter((m) => !m.streaming && !m.error && m.content.trim())
+    .map((m) => ({ role: m.role, content: m.content }))
+  while (turns.length > 0 && turns[0].role === 'assistant') turns.shift()
+  return turns
+}

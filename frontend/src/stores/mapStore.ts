@@ -12,6 +12,11 @@ interface MapState {
   flyTo: { center: [number, number]; zoom: number; key: number } | null
   /** One-shot fit-bounds request ([lng,lat] pairs), consumed by WorldMap. */
   fitTo: { points: [number, number][]; key: number } | null
+  /** Active overlay mode (null = off). Sticky across city switches; the
+   *  renderer simply draws nothing when the selected city lacks the mode. */
+  mapMode: string | null
+  /** Hour shown by the traffic mode, 0-23. */
+  trafficHour: number
 
   selectCity: (id: string | null) => void
   setMatches: (matches: Match[]) => void
@@ -19,6 +24,8 @@ interface MapState {
   requestFlyTo: (center: [number, number], zoom: number) => void
   consumeFlyTo: () => void
   consumeFitTo: () => void
+  setMapMode: (mode: string | null) => void
+  setTrafficHour: (hour: number) => void
 }
 
 export const useMapStore = create<MapState>((set) => ({
@@ -27,6 +34,8 @@ export const useMapStore = create<MapState>((set) => ({
   activeSolutionId: null,
   flyTo: null,
   fitTo: null,
+  mapMode: null,
+  trafficHour: 8, // morning peak reads well on first open
 
   selectCity: (id) => set({ selectedCityId: id }),
   setMatches: (matches) => {
@@ -42,4 +51,6 @@ export const useMapStore = create<MapState>((set) => ({
   requestFlyTo: (center, zoom) => set({ flyTo: { center, zoom, key: Date.now() } }),
   consumeFlyTo: () => set({ flyTo: null }),
   consumeFitTo: () => set({ fitTo: null }),
+  setMapMode: (mode) => set({ mapMode: mode }),
+  setTrafficHour: (hour) => set({ trafficHour: Math.max(0, Math.min(23, hour)) }),
 }))

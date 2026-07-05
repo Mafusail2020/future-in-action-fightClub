@@ -8,6 +8,8 @@
 @import '@fontsource/ibm-plex-sans/600.css';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/noto-sans/cyrillic-700.css';
+@import '@fontsource/noto-sans/700.css';
 @import 'maplibre-gl/dist/maplibre-gl.css';
 @import 'tailwindcss';
 
@@ -214,10 +216,10 @@ body {
   border-radius: 999px;
   border: 1px solid var(--color-line);
   background: color-mix(in srgb, var(--color-ink-900) 88%, transparent);
-  color: var(--color-paper);
-  font-family: var(--font-display);
+  color: #cdd9ec; /* steel-blue tint between paper and the tile-label blue */
+  font-family: 'Noto Sans', var(--font-sans); /* matches the base map's labels */
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: 0.04em;
   cursor: pointer;
   white-space: nowrap;
@@ -379,6 +381,15 @@ body {
 .card-grow-in > * {
   overflow: hidden;
   min-height: 0;
+}
+
+/* Map-mode switcher: checkmark pops in on the selected row. */
+@keyframes check-in {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+.check-in {
+  animation: check-in 200ms ease both;
 }
 
 @media (prefers-reduced-motion: reduce) {

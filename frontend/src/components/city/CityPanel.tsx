@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 import { useCityDetail } from '../../api/queries'
+import { ukCityName } from '../../lib/cityNamesUk'
 import { useMapStore } from '../../stores/mapStore'
 import { EmptyState, ErrorBox, Spinner } from '../ui/Bits'
 import { SolutionList } from './CaseList'
@@ -30,7 +31,7 @@ export function CityPanel() {
 
   return (
     <aside
-      aria-label={city ? `Рішення міста ${city.name}` : 'Місто'}
+      aria-label={city ? `Рішення міста ${ukCityName(city.name)}` : 'Місто'}
       className="pointer-events-auto absolute top-3 bottom-3 left-3 z-20 flex w-[340px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-xl border border-line bg-ink-900/95 shadow-2xl backdrop-blur max-md:top-auto max-md:right-3 max-md:max-h-[55dvh] max-md:w-auto"
     >
       <header className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
@@ -45,7 +46,7 @@ export function CityPanel() {
             tabIndex={-1}
             className="font-display text-lg leading-tight font-semibold outline-none"
           >
-            {city?.name ?? 'Завантаження…'}
+            {city ? ukCityName(city.name) : 'Завантаження…'}
           </h2>
         </div>
         <button

@@ -1,5 +1,6 @@
 import type { Match } from '../../api/types'
 import { categoryLabel } from '../../lib/categories'
+import { ukCityName } from '../../lib/cityNamesUk'
 import { useMapStore } from '../../stores/mapStore'
 
 /**
@@ -33,7 +34,7 @@ export function MatchCard({ match }: { match: Match }) {
           {Math.round(match.score * 100)}%
         </span>
         <span className="truncate text-xs text-muted">
-          {s.city?.name}
+          {s.city ? ukCityName(s.city.name) : ''}
           {s.city ? `, ${s.city.country}` : ''}
         </span>
         <span className="ml-auto rounded border border-cyan/40 bg-cyan/10 px-1.5 py-px font-mono text-[9px] tracking-wide text-cyan uppercase">

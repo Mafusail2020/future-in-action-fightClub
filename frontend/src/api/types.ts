@@ -116,3 +116,23 @@ export interface ChatRequestBody {
   limit?: number
   model?: string
 }
+
+// --- Map overlay modes (mirror backend/app/domain/{models,map_modes}.py) ------
+
+export interface MapModeInfo {
+  mode: string
+  label: string
+  kind: 'polygon' | 'line'
+  /** Feature property with the 0..1 score; prefix ("h") for temporal modes. */
+  value_prop: string
+  temporal: boolean
+  generated_at: string | null
+}
+
+export interface MapLayerResponse {
+  mode: string
+  city_id: string
+  generated_at: string
+  meta: Record<string, unknown>
+  feature_collection: GeoJSON.FeatureCollection
+}

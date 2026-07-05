@@ -7,6 +7,7 @@ import { ProblemsDropdown } from '../catalog/ProblemsDropdown'
 import { ChatCanvas } from '../chat/ChatCanvas'
 import { Sidebar } from '../chat/Sidebar'
 import { CityPanel } from '../city/CityPanel'
+import { MapModeControls } from '../map/MapModeControls'
 import { WorldMap } from '../map/WorldMap'
 
 /**
@@ -85,6 +86,7 @@ export function AppShell() {
                 <ProblemsDropdown />
                 <HomeButton />
               </div>
+              <MapModeControls />
             </div>
           </div>
 

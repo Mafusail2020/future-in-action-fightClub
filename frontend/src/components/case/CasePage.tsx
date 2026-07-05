@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 
 import { useSolution } from '../../api/queries'
 import { categoryLabel } from '../../lib/categories'
+import { ukCityName } from '../../lib/cityNamesUk'
 import { ErrorBox, Spinner } from '../ui/Bits'
 
 /** Reading page for one solution. Opens in its own tab. */
@@ -27,7 +28,7 @@ export function SolutionPage() {
           <article>
             <header className="mb-8 border-b border-line pb-6">
               <p className="font-mono text-[11px] tracking-[0.16em] text-faint uppercase">
-                Рішення · {s.city?.name ?? '—'}
+                Рішення · {s.city ? ukCityName(s.city.name) : '—'}
                 {s.city ? `, ${s.city.country}` : ''}
                 {s.city?.population
                   ? ` · ${Math.round(s.city.population / 1000)} тис. мешканців`

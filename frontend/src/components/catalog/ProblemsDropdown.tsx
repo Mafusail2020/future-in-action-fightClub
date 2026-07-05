@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSolutions } from '../../api/queries'
 import type { Category, Solution } from '../../api/types'
 import { CATEGORY_LABELS } from '../../lib/categories'
+import { ukCityName } from '../../lib/cityNamesUk'
 import { useMapStore } from '../../stores/mapStore'
 import { EmptyState, ErrorBox, Spinner } from '../ui/Bits'
 
@@ -129,7 +130,7 @@ export function ProblemsDropdown() {
                             </p>
                             {s.city && (
                               <p className="mt-0.5 font-mono text-[11px] text-text-tertiary">
-                                {s.city.name} · {s.city.country}
+                                {ukCityName(s.city.name)} · {s.city.country}
                               </p>
                             )}
                           </a>

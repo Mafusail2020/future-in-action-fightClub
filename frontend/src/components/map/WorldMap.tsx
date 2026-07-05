@@ -5,11 +5,13 @@ import type { LngLatBoundsLike } from 'maplibre-gl'
 import { useChatStore } from '../../stores/chatStore'
 import { useTour } from '../../hooks/useTour'
 import { mapStyle } from '../../lib/mapStyle'
+import { loadNamePlate, loadPoiIcons, loadRoadShield } from '../../lib/poiIcons'
 import { useMapScene } from '../../stores/mapScene'
 import { useMapStore } from '../../stores/mapStore'
 import { MatchMarkers } from './ChatLayers'
 import { CityMarkers } from './CityMarkers'
 import { HomeMarker } from './HomeMarker'
+import { ModeLayers } from './ModeLayers'
 import { SceneLayer } from './SceneLayer'
 
 /** Starts wide enough to show the globe with the seeded cities. */
@@ -78,7 +80,14 @@ export function WorldMap() {
         mapStyle={mapStyle}
         attributionControl={{ compact: true }}
         style={{ width: '100%', height: '100%', background: '#060d1a' }}
+        onLoad={() => {
+          if (!mapRef.current) return
+          loadPoiIcons(mapRef.current)
+          loadRoadShield(mapRef.current)
+          loadNamePlate(mapRef.current)
+        }}
       >
+        <ModeLayers />
         <CityMarkers />
         <MatchMarkers />
         <HomeMarker />

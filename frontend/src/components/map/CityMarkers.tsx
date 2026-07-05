@@ -4,6 +4,7 @@ import Supercluster from 'supercluster'
 
 import { useCities } from '../../api/queries'
 import type { City } from '../../api/types'
+import { ukCityName } from '../../lib/cityNamesUk'
 import { useChatStore } from '../../stores/chatStore'
 import { useMapStore } from '../../stores/mapStore'
 
@@ -183,14 +184,14 @@ export function CityMarkers() {
           city.name.toLowerCase() === homeCity.city.toLowerCase() &&
           city.country.toLowerCase() === homeCity.country.toLowerCase()
         return (
-          <Marker key={key} longitude={city.lng} latitude={city.lat} anchor="left">
+          <Marker key={key} longitude={city.lng} latitude={city.lat} anchor="center">
             <FlyIn from={from}>
               <button
                 type="button"
                 className="city-marker"
                 data-selected={selectedCityId === city.id}
                 data-home={isHome}
-                aria-label={`${city.name}, ${city.country}: рішень — ${city.solution_count ?? 0}`}
+                aria-label={`${ukCityName(city.name)}, ${city.country}: рішень — ${city.solution_count ?? 0}`}
                 aria-pressed={selectedCityId === city.id}
                 onClick={() => {
                   selectCity(city.id)
@@ -198,7 +199,7 @@ export function CityMarkers() {
                 }}
               >
                 <span className="dot" aria-hidden />
-                {city.name}
+                {ukCityName(city.name)}
                 <span className="count">{city.solution_count ?? 0}</span>
               </button>
             </FlyIn>

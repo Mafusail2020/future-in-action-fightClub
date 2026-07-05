@@ -1,5 +1,6 @@
 import { Marker, useMap } from 'react-map-gl/maplibre'
 
+import { ukCityName } from '../../lib/cityNamesUk'
 import { useMapStore } from '../../stores/mapStore'
 
 /**
@@ -22,7 +23,7 @@ export function MatchMarkers() {
           <Marker key={match.solution_id} longitude={city.lng} latitude={city.lat} anchor="bottom">
             <button
               type="button"
-              aria-label={`Рішення: ${match.solution!.title} — ${city.name}`}
+              aria-label={`Рішення: ${match.solution!.title} — ${ukCityName(city.name)}`}
               data-active={isActive}
               onClick={() => map?.flyTo({ center: [city.lng, city.lat], zoom: 6, duration: 1200 })}
               className={`flex flex-col items-center transition-transform ${

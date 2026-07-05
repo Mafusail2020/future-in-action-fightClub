@@ -21,7 +21,10 @@ class SolutionsRepository:
         if city_id:
             query = query.eq("city_id", city_id)
         if q:
-            like = f"%{q}%"
+            # Commas and parens are PostgREST or_() syntax — strip them from user input
+            # or the filter string breaks with a 400.
+            safe = q.replace(",", " ").replace("(", " ").replace(")", " ").strip()
+            like = f"%{safe}%"
             query = query.or_(f"title.ilike.{like},problem.ilike.{like},solution.ilike.{like}")
         return query.order("created_at", desc=True).execute().data
 

@@ -35,6 +35,7 @@ _PROFILE_SCHEMA = {
         "summary": {"type": "string"},
     },
     "required": ["problem_domains", "summary"],
+    "additionalProperties": False,
 }
 
 _MATCH_SCHEMA = {
@@ -98,6 +99,10 @@ class Agent:
             prompt=f"City: {city}\nCountry: {country}",
             schema=_PROFILE_SCHEMA,
         )
+        # The schema forbids extra keys, but a model may still echo city/country —
+        # they would collide with the explicit kwargs below.
+        data.pop("city", None)
+        data.pop("country", None)
         profile = CityProfile(city=city, country=country, **data)
 
         if self.profiles:

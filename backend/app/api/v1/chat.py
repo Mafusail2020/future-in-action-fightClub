@@ -15,20 +15,23 @@ def chat(req: ChatRequest, agent: Agent = Depends(get_agent)) -> StreamingRespon
     """Server-Sent Events. Emits a `matches` event (for the map), then `token` events, then `done`."""
 
     def event_stream():
-        profile = None
-        matches = []
-        if req.city and req.country:
-            profile, matches = agent.recommend(req.city, req.country, req.limit)
-            payload = {
-                "profile": profile.model_dump(mode="json"),
-                "matches": [m.model_dump(mode="json") for m in matches],
-            }
-            yield f"event: matches\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+        try:
+            profile = None
+            matches = []
+            if req.city and req.country:
+                profile, matches = agent.recommend(req.city, req.country, req.limit)
+                payload = {
+                    "profile": profile.model_dump(mode="json"),
+                    "matches": [m.model_dump(mode="json") for m in matches],
+                }
+                yield f"event: matches\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
-        for token in agent.answer_stream(req.message, profile, matches, req.history):
-            yield f"event: token\ndata: {json.dumps({'text': token}, ensure_ascii=False)}\n\n"
+            for token in agent.answer_stream(req.message, profile, matches, req.history):
+                yield f"event: token\ndata: {json.dumps({'text': token}, ensure_ascii=False)}\n\n"
 
-        yield "event: done\ndata: {}\n\n"
+            yield "event: done\ndata: {}\n\n"
+        except Exception as exc:  # surface as an SSE event instead of a dead connection
+            yield f"event: error\ndata: {json.dumps({'message': str(exc)}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(
         event_stream(),

@@ -20,6 +20,16 @@ export function useCityDetail(cityId: string | null) {
   })
 }
 
+/** Full solution catalog — powers the "all problems" dialog. Fetched only when open. */
+export function useSolutions(enabled: boolean) {
+  return useQuery({
+    queryKey: ['solutions'],
+    queryFn: () => apiGet<Solution[]>('/solutions'),
+    staleTime: 5 * 60_000,
+    enabled,
+  })
+}
+
 export function useSolution(solutionId: string | undefined) {
   return useQuery({
     queryKey: ['solution', solutionId],

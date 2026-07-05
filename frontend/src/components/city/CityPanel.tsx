@@ -31,7 +31,7 @@ export function CityPanel() {
   return (
     <aside
       aria-label={city ? `Рішення міста ${city.name}` : 'Місто'}
-      className="pointer-events-auto absolute top-3 bottom-3 left-3 z-10 flex w-[340px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-xl border border-line bg-ink-900/95 shadow-2xl backdrop-blur max-md:top-auto max-md:right-3 max-md:max-h-[55dvh] max-md:w-auto"
+      className="pointer-events-auto absolute top-3 bottom-3 left-3 z-20 flex w-[340px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-xl border border-line bg-ink-900/95 shadow-2xl backdrop-blur max-md:top-auto max-md:right-3 max-md:max-h-[55dvh] max-md:w-auto"
     >
       <header className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
         <div>

@@ -1,4 +1,5 @@
 @import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/lora'; /* all subsets incl. cyrillic, unicode-range gated */
 @import '@fontsource/ibm-plex-sans/cyrillic-400.css';
 @import '@fontsource/ibm-plex-sans/cyrillic-500.css';
 @import '@fontsource/ibm-plex-sans/cyrillic-600.css';
@@ -28,8 +29,24 @@
   --color-ocean: #071c36;
 
   --font-display: 'Space Grotesk Variable', 'IBM Plex Sans', sans-serif;
+  --font-serif: 'Lora Variable', Georgia, serif;
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Claude-shell tokens (§0) — aliases over the existing palette */
+  --color-bg-main: #0b1220;
+  --color-bg-sidebar: #0d1526;
+  --color-bg-elevated: #141f33;
+  --color-border-subtle: rgba(141, 162, 192, 0.13);
+  --color-text-primary: #e8edf7;
+  --color-text-secondary: #8da2c0;
+  --color-text-tertiary: #5c6f8f;
+  --color-accent: #5fd4d0;
+  --color-accent-primary-btn: #f5b84c;
+}
+
+html {
+  font-size: 16px; /* size targets in the spec assume a 16px base — never scale the root */
 }
 
 html,
@@ -44,12 +61,15 @@ body {
   color: var(--color-paper);
   font-family: var(--font-sans);
   font-size: 15px;
-  line-height: 1.55;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-amber);
+/* Keyboard focus ring on interactive controls only — text fields show focus via
+   caret/border, browsers treat any click into them as :focus-visible, and
+   tabindex="-1" targets are focused programmatically (never a keyboard stop). */
+:where(a, button, select, summary, [role='option'], [tabindex]):focus-visible:not([tabindex='-1']) {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -238,6 +258,127 @@ body {
 }
 .animate-pulse-soft {
   animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
+/* Claude-shell chrome (§2, §5): borderless icon buttons with an invisible hover pill */
+.chrome-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--color-text-tertiary);
+  transition: background 120ms ease, color 120ms ease;
+}
+.chrome-btn:hover {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-elevated);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+  width: 100%;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  transition: background 120ms ease, color 120ms ease;
+  text-align: left;
+}
+.nav-item:hover {
+  background: var(--color-bg-elevated);
+}
+.nav-item[data-active='true'] {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
+.recent-item {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  width: 100%;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  transition: background 120ms ease, color 120ms ease;
+}
+.recent-item:hover {
+  background: var(--color-bg-elevated);
+}
+.recent-item[data-active='true'] {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
+@keyframes greeting-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.greeting-in {
+  animation: greeting-in 250ms ease;
+}
+
+@keyframes composer-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.composer-in {
+  animation: composer-in 300ms ease;
+}
+
+/* Cluster bubbles / city pills popping in after a merge or split */
+@keyframes marker-pop {
+  from { opacity: 0; transform: scale(0.4); }
+  60% { transform: scale(1.08); }
+  to { opacity: 1; transform: scale(1); }
+}
+.marker-pop {
+  animation: marker-pop 250ms ease-out;
+}
+
+/* Map director: callout leader line + highlight styles */
+@keyframes callout-line {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes ping-slow {
+  0% { transform: scale(0.7); opacity: 0.9; }
+  70%, 100% { transform: scale(1.5); opacity: 0; }
+}
+.animate-ping-slow {
+  animation: ping-slow 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.hl-glow {
+  box-shadow: 0 0 22px 6px rgba(245, 184, 76, 0.65);
+}
+
+/* Dropdown catalog: first row fades, the rest drop in like dealt cards. */
+@keyframes card-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.card-fade-in {
+  animation: card-fade-in 220ms ease both;
+}
+
+/* Row grows from zero height, so the panel itself expands with each card. */
+@keyframes card-grow-in {
+  from { grid-template-rows: 0fr; opacity: 0; }
+  to { grid-template-rows: 1fr; opacity: 1; }
+}
+.card-grow-in {
+  display: grid;
+  animation: card-grow-in 260ms ease both;
+}
+.card-grow-in > * {
+  overflow: hidden;
+  min-height: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

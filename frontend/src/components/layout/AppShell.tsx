@@ -1,76 +1,169 @@
-import { useState } from 'react'
+import { Home, PanelLeft } from 'lucide-react'
+import { useCallback, useState } from 'react'
 
 import { useChatStore } from '../../stores/chatStore'
-import { ChatPanel } from '../chat/ChatPanel'
+import { useMapStore } from '../../stores/mapStore'
+import { ProblemsDropdown } from '../catalog/ProblemsDropdown'
+import { ChatCanvas } from '../chat/ChatCanvas'
+import { Sidebar } from '../chat/Sidebar'
 import { CityPanel } from '../city/CityPanel'
 import { WorldMap } from '../map/WorldMap'
 
 /**
- * Desktop ≥1280: map + docked chat column (map resizes when chat collapses).
- * 768–1280: chat overlays the map as a right drawer.
- * <768: bottom tab bar switches full-screen Map | Chat.
+ * The map is a FIXED full-viewport canvas layer — sidebar, chat and panels
+ * float above it and only cover parts of it. Collapsing the sidebar or
+ * dragging the chat divider never resizes (and never re-lays-out) the map.
  */
 export function AppShell() {
-  const chatOpen = useChatStore((s) => s.chatOpen)
-  const toggleChat = useChatStore((s) => s.toggleChat)
-  const [mobileView, setMobileView] = useState<'map' | 'chat'>('map')
+  const sidebarOpen = useChatStore((s) => s.sidebarOpen)
+  const toggleSidebar = useChatStore((s) => s.toggleSidebar)
+  const chatWidth = useChatStore((s) => s.chatWidth)
+  const setChatWidth = useChatStore((s) => s.setChatWidth)
+  const [mobileView, setMobileView] = useState<'chat' | 'map'>('chat')
+  const [dragging, setDragging] = useState(false)
+
+  const startDrag = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault()
+      setDragging(true)
+      const onMove = (ev: PointerEvent) => {
+        const width = window.innerWidth - ev.clientX
+        setChatWidth(Math.min(Math.max(width, 360), Math.round(window.innerWidth * 0.65)))
+      }
+      const onUp = () => {
+        setDragging(false)
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+      }
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+    },
+    [setChatWidth],
+  )
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden">
-      <div className="relative flex min-h-0 flex-1">
-        {/* Map zone (always mounted so the globe survives tab switches) */}
-        <main
-          aria-label="Мапа міст і даних"
-          className={`relative min-w-0 flex-1 ${mobileView === 'chat' ? 'max-md:invisible' : ''}`}
+    <div
+      className={`flex h-dvh flex-col overflow-hidden bg-bg-main ${
+        dragging ? 'cursor-col-resize select-none' : ''
+      }`}
+    >
+      <div className="relative min-h-0 flex-1">
+        {/* Fixed map canvas — never moves, never resizes */}
+        <div
+          className={`absolute inset-0 ${mobileView === 'chat' ? 'max-md:invisible' : ''}`}
+          aria-label="Мапа міст і рішень"
         >
           <WorldMap />
+        </div>
 
-          {/* Brand chip */}
-          <div className="pointer-events-none absolute top-3 left-3 z-10 max-md:left-1/2 max-md:-translate-x-1/2">
-            <div className="rounded-lg border border-line bg-ink-900/90 px-3 py-1.5 backdrop-blur">
-              <p className="font-display text-[13px] font-semibold tracking-[0.08em]">
-                ЖИТОМИР · РАДНИК
-              </p>
-              <p className="font-mono text-[10px] tracking-[0.14em] text-faint uppercase">
-                дані міста · рішення світу
-              </p>
+        {/* Overlay row: transparent to the map except its own children */}
+        <div className="pointer-events-none relative flex h-full">
+          {/* Sidebar */}
+          <div
+            className={`pointer-events-auto h-full transition-[margin] duration-200 ease-out max-md:absolute max-md:top-0 max-md:left-0 max-md:z-30 max-md:shadow-2xl ${
+              sidebarOpen ? '' : 'max-md:-translate-x-full md:-ml-[288px]'
+            } max-md:transition-transform`}
+          >
+            <Sidebar />
+          </div>
+          {/* Drawer backdrop (mobile only) */}
+          {sidebarOpen && (
+            <button
+              type="button"
+              aria-label="Закрити меню"
+              onClick={toggleSidebar}
+              className="pointer-events-auto absolute inset-0 z-20 hidden bg-ink-950/60 max-md:block"
+            />
+          )}
+
+          {/* Map window: uncovered area between sidebar and chat; panels float here */}
+          <div className="relative min-w-0 flex-1">
+            <div className="pointer-events-auto contents">
+              <CityPanel />
+              {/* Corner stack: dropdown trigger with the home button right under it */}
+              <div className="absolute top-4 left-4 z-10 flex w-fit flex-col gap-2">
+                <ProblemsDropdown />
+                <HomeButton />
+              </div>
             </div>
           </div>
 
-          <CityPanel />
+          {/* Draggable divider */}
+          <div
+            role="separator"
+            aria-label="Змінити ширину чату"
+            aria-orientation="vertical"
+            onPointerDown={startDrag}
+            className={`pointer-events-auto relative z-10 h-full w-1 shrink-0 cursor-col-resize transition-colors max-md:hidden ${
+              dragging ? 'bg-accent/40' : 'bg-transparent hover:bg-accent/25'
+            }`}
+          >
+            {/* widened invisible grab area */}
+            <span className="absolute inset-y-0 -right-1.5 -left-1.5" />
+          </div>
 
-          {/* Reopen chat (desktop/tablet, when collapsed) */}
-          {!chatOpen && (
-            <button
-              type="button"
-              onClick={toggleChat}
-              aria-label="Відкрити чат"
-              className="absolute top-3 right-3 z-10 rounded-lg border border-amber/50 bg-ink-900/90 px-3 py-2 font-display text-sm font-medium text-amber backdrop-blur transition-colors hover:bg-amber hover:text-ink-950 max-md:hidden"
-            >
-              « Радник
-            </button>
-          )}
-        </main>
-
-        {/* Chat zone: docked ≥1280, drawer 768–1280, tab <768 */}
-        <div
-          className={`
-            h-full w-[400px] shrink-0 transition-[width] duration-200
-            ${chatOpen ? '' : 'lg:w-0 lg:overflow-hidden'}
-            max-lg:absolute max-lg:top-0 max-lg:right-0 max-lg:z-20 max-lg:shadow-2xl
-            ${chatOpen ? '' : 'max-lg:hidden'}
-            max-md:static max-md:w-full max-md:shadow-none
-            ${mobileView === 'chat' ? 'max-md:block' : 'max-md:hidden'}
-          `}
-        >
-          <ChatPanel />
+          {/* Chat column (right): ~1/3 of the screen by default, draggable */}
+          <main
+            aria-label="Чат із радником"
+            style={{ width: chatWidth }}
+            className={`pointer-events-auto relative shrink-0 bg-bg-main max-md:!w-full max-md:flex-1 ${
+              mobileView === 'map' ? 'max-md:hidden' : ''
+            }`}
+          >
+            {/* Reopen sidebar — floating chrome (hamburger < 768px, panel icon otherwise) */}
+            {!sidebarOpen && (
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                aria-label="Відкрити бокову панель"
+                className="chrome-btn absolute top-4 left-4 z-10"
+              >
+                <PanelLeft size={18} strokeWidth={1.5} />
+              </button>
+            )}
+            <ChatCanvas />
+          </main>
         </div>
       </div>
 
+      <MobileTabBarSpacer mobileView={mobileView} setMobileView={setMobileView} />
+    </div>
+  )
+}
+
+/** Flies the map back to the user's home city. */
+function HomeButton() {
+  const homeCity = useChatStore((s) => s.homeCity)
+  const requestFlyTo = useMapStore((s) => s.requestFlyTo)
+  const hasCoords = homeCity.lat != null && homeCity.lng != null
+
+  return (
+    <button
+      type="button"
+      disabled={!hasCoords}
+      onClick={() => hasCoords && requestFlyTo([homeCity.lng!, homeCity.lat!], 10.5)}
+      aria-label={`До мого міста: ${homeCity.city}`}
+      title={hasCoords ? `До ${homeCity.city}` : 'Місто без координат — оберіть із підказок'}
+      className="flex size-[38px] items-center justify-center rounded-[10px] border border-border-subtle bg-bg-elevated/80 text-text-secondary backdrop-blur transition-colors hover:border-text-tertiary hover:text-text-primary disabled:opacity-40"
+    >
+      <Home size={20} strokeWidth={1.5} />
+    </button>
+  )
+}
+
+function MobileTabBarSpacer({
+  mobileView,
+  setMobileView,
+}: {
+  mobileView: 'chat' | 'map'
+  setMobileView: (v: 'chat' | 'map') => void
+}) {
+  return (
+    <>
       {/* Mobile tab bar */}
       <nav
         aria-label="Розділи"
-        className="hidden shrink-0 border-t border-line bg-ink-900 max-md:flex"
+        className="hidden shrink-0 border-t border-border-subtle bg-bg-sidebar max-md:flex"
       >
         {(
           [
@@ -84,13 +177,13 @@ export function AppShell() {
             onClick={() => setMobileView(view)}
             aria-current={mobileView === view ? 'page' : undefined}
             className={`flex-1 py-3 font-display text-sm font-medium transition-colors ${
-              mobileView === view ? 'text-amber' : 'text-muted'
+              mobileView === view ? 'text-accent' : 'text-text-secondary'
             }`}
           >
             {label}
           </button>
         ))}
       </nav>
-    </div>
+    </>
   )
 }

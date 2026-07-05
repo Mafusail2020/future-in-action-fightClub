@@ -79,10 +79,40 @@ export interface CategoryOption {
   label: string
 }
 
+// --- RAG citations (mirror backend/app/agent/search_tools.py) -----------------
+
+export interface RagSource {
+  type: 'solution' | 'city_doc'
+  title: string
+  solution_id?: string
+  doc_id?: string
+  city?: string
+  kind?: string
+  url?: string | null
+}
+
+/** Label ("S1") -> source, shipped once per turn via the `sources` SSE event. */
+export type SourcesMap = Record<string, RagSource>
+
+// --- Map director ops (mirror backend/app/agent/map_ops.py) -------------------
+
+export type CityRef = string // city id or "home"
+
+export type MapOp =
+  | { op: 'zoom_to'; target: CityRef | CityRef[]; zoom?: number }
+  | { op: 'highlight'; city_ids: CityRef[]; style?: 'pulse' | 'ring' | 'glow'; duration_s?: number }
+  | { op: 'mark'; city_id: CityRef; kind?: 'pin' | 'star' | 'warning' | 'check' | 'flag'; label?: string }
+  | { op: 'callout'; city_id: CityRef; text: string; side?: 'auto' | 'left' | 'right' }
+  | { op: 'connect'; from: CityRef; to: CityRef; label?: string }
+  | { op: 'tour'; stops: { city_id: CityRef; text?: string; hold_s?: number }[]; zoom?: number }
+  | { op: 'spotlight'; city_ids?: CityRef[]; off?: boolean }
+  | { op: 'clear' }
+
 export interface ChatRequestBody {
   message: string
   city?: string
   country?: string
   history: { role: 'user' | 'assistant'; content: string }[]
   limit?: number
+  model?: string
 }

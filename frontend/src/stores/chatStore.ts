@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import type { CityProfile, Match } from '../api/types'
+import type { CityProfile, MapOp, Match, SourcesMap } from '../api/types'
 
 export interface ChatMessage {
   id: string
@@ -9,6 +9,10 @@ export interface ChatMessage {
   content: string
   /** Solutions matched for this turn (arrive via the `matches` SSE event). */
   matches?: Match[]
+  /** Map-director ops the AI fired during this turn (replayed on chat open). */
+  map_ops?: MapOp[]
+  /** [S#] label -> source for citation chips in this answer. */
+  sources?: SourcesMap
   profile?: CityProfile
   streaming?: boolean
   error?: string
@@ -25,14 +29,24 @@ interface ChatState {
   sessions: ChatSession[]
   activeSessionId: string | null
   /** The user's home city — sent with every message so the agent matches against it. */
-  homeCity: { city: string; country: string }
+  homeCity: { city: string; country: string; lat?: number; lng?: number }
   chatOpen: boolean
-  historyOpen: boolean
+  sidebarOpen: boolean
   isStreaming: boolean
+  /** Canvas mode: the conversation or the full chats list (nav «Чати» toggles). */
+  canvasView: 'chat' | 'chats'
+  /** Anthropic model id sent with every message. */
+  model: string
+  /** Chat column width in px (draggable divider). */
+  chatWidth: number
 
-  setHomeCity: (city: string, country: string) => void
+  setHomeCity: (city: string, country: string, lat?: number, lng?: number) => void
   toggleChat: () => void
-  toggleHistory: () => void
+  toggleSidebar: () => void
+  toggleCanvasView: () => void
+  setCanvasView: (view: 'chat' | 'chats') => void
+  setModel: (model: string) => void
+  setChatWidth: (width: number) => void
   newSession: () => string
   openSession: (id: string) => void
   deleteSession: (id: string) => void
@@ -41,6 +55,7 @@ interface ChatState {
   appendMessage: (sessionId: string, message: ChatMessage) => void
   updateLastAssistant: (sessionId: string, patch: Partial<ChatMessage>) => void
   appendToken: (sessionId: string, text: string) => void
+  appendMapOp: (sessionId: string, op: MapOp) => void
   setStreaming: (value: boolean) => void
 }
 
@@ -51,14 +66,22 @@ export const useChatStore = create<ChatState>()(
     (set, get) => ({
       sessions: [],
       activeSessionId: null,
-      homeCity: { city: 'Zhytomyr', country: 'Ukraine' },
+      homeCity: { city: 'Zhytomyr', country: 'Ukraine', lat: 50.2547, lng: 28.6587 },
       chatOpen: true,
-      historyOpen: false,
+      sidebarOpen: true,
       isStreaming: false,
+      canvasView: 'chat',
+      model: 'claude-sonnet-5',
+      chatWidth: Math.round(window.innerWidth / 3),
 
-      setHomeCity: (city, country) => set({ homeCity: { city, country } }),
+      setHomeCity: (city, country, lat, lng) => set({ homeCity: { city, country, lat, lng } }),
       toggleChat: () => set((s) => ({ chatOpen: !s.chatOpen })),
-      toggleHistory: () => set((s) => ({ historyOpen: !s.historyOpen })),
+      toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+      toggleCanvasView: () =>
+        set((s) => ({ canvasView: s.canvasView === 'chats' ? 'chat' : 'chats' })),
+      setCanvasView: (view) => set({ canvasView: view }),
+      setModel: (model) => set({ model }),
+      setChatWidth: (width) => set({ chatWidth: width }),
 
       newSession: () => {
         const id = uuid()
@@ -68,10 +91,10 @@ export const useChatStore = create<ChatState>()(
           createdAt: Date.now(),
           messages: [],
         }
-        set((s) => ({ sessions: [session, ...s.sessions], activeSessionId: id, historyOpen: false }))
+        set((s) => ({ sessions: [session, ...s.sessions], activeSessionId: id }))
         return id
       },
-      openSession: (id) => set({ activeSessionId: id, historyOpen: false }),
+      openSession: (id) => set({ activeSessionId: id }),
       deleteSession: (id) =>
         set((s) => {
           const sessions = s.sessions.filter((x) => x.id !== id)
@@ -125,6 +148,13 @@ export const useChatStore = create<ChatState>()(
           get().updateLastAssistant(sessionId, { content: last.content + text })
         }
       },
+      appendMapOp: (sessionId, op) => {
+        const session = get().sessions.find((x) => x.id === sessionId)
+        const last = session?.messages.at(-1)
+        if (last?.role === 'assistant') {
+          get().updateLastAssistant(sessionId, { map_ops: [...(last.map_ops ?? []), op] })
+        }
+      },
       setStreaming: (value) => set({ isStreaming: value }),
     }),
     {
@@ -138,6 +168,8 @@ export const useChatStore = create<ChatState>()(
         activeSessionId: s.activeSessionId,
         homeCity: s.homeCity,
         chatOpen: s.chatOpen,
+        model: s.model,
+        chatWidth: s.chatWidth,
       }),
     },
   ),

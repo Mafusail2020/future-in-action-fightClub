@@ -5,25 +5,16 @@ import { useChatStore } from '../../stores/chatStore'
 import { MatchCard } from './MatchCard'
 import { AssistantMarkdown } from './Message'
 
-const SUGGESTIONS = [
-  'Які рішення підійдуть моєму місту найбільше?',
-  'Як інші міста боролися з заторами?',
-  'Що робили міста з модернізацією опалення?',
-  'Покажи рішення з безпеки для середнього міста',
-]
-
 export function MessageList({
   onEdit,
   onRegenerate,
-  onSuggest,
 }: {
   onEdit: (index: number, text: string) => void
   onRegenerate: () => void
-  onSuggest: (text: string) => void
 }) {
   const session = useChatStore((s) => s.sessions.find((x) => x.id === s.activeSessionId))
   const isStreaming = useChatStore((s) => s.isStreaming)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const endRef = useRef<HTMLDivElement>(null)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
 
@@ -31,62 +22,38 @@ export function MessageList({
   const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant')
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
+    endRef.current?.scrollIntoView({ block: 'end' })
   }, [messages.length, messages.at(-1)?.content]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (messages.length === 0) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-8">
-        <p className="font-display text-center text-base text-muted">
-          Спитайте — знайду перевірені рішення інших міст і покажу їх на мапі
-        </p>
-        <div className="flex w-full max-w-sm flex-col gap-2">
-          {SUGGESTIONS.map((text) => (
-            <button
-              key={text}
-              type="button"
-              onClick={() => onSuggest(text)}
-              className="rounded-lg border border-line bg-ink-800 px-3 py-2 text-left text-[13px] text-paper transition-colors hover:border-amber"
-            >
-              {text}
-            </button>
-          ))}
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div
-      ref={scrollRef}
       role="log"
       aria-live="polite"
       aria-label="Повідомлення розмови"
-      className="panel-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4"
+      className="flex flex-col gap-5"
     >
-      <div className="flex flex-col gap-4">
-        {messages.map((message, index) => (
-          <MessageRow
-            key={message.id}
-            message={message}
-            isLastAssistant={index === lastAssistantIndex}
-            isEditing={editingIndex === index}
-            streamingNow={isStreaming}
-            onStartEdit={() => {
-              setEditingIndex(index)
-              setDraft(message.content)
-            }}
-            onCancelEdit={() => setEditingIndex(null)}
-            draft={draft}
-            setDraft={setDraft}
-            onSubmitEdit={() => {
-              setEditingIndex(null)
-              onEdit(index, draft)
-            }}
-            onRegenerate={onRegenerate}
-          />
-        ))}
-      </div>
+      {messages.map((message, index) => (
+        <MessageRow
+          key={message.id}
+          message={message}
+          isLastAssistant={index === lastAssistantIndex}
+          isEditing={editingIndex === index}
+          streamingNow={isStreaming}
+          onStartEdit={() => {
+            setEditingIndex(index)
+            setDraft(message.content)
+          }}
+          onCancelEdit={() => setEditingIndex(null)}
+          draft={draft}
+          setDraft={setDraft}
+          onSubmitEdit={() => {
+            setEditingIndex(null)
+            onEdit(index, draft)
+          }}
+          onRegenerate={onRegenerate}
+        />
+      ))}
+      <div ref={endRef} />
     </div>
   )
 }
@@ -117,19 +84,19 @@ function MessageRow({
   if (message.role === 'user') {
     if (isEditing) {
       return (
-        <div className="ml-8 rounded-xl border border-amber/50 bg-ink-700 p-2">
+        <div className="ml-12 rounded-2xl border border-accent/50 bg-bg-elevated p-2 max-md:ml-6">
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             rows={3}
             aria-label="Редагувати повідомлення"
-            className="w-full resize-y bg-transparent px-1.5 py-1 text-sm outline-none"
+            className="w-full resize-y bg-transparent px-2 py-1 text-[15px] outline-none"
           />
           <div className="flex justify-end gap-2 px-1 pb-1">
             <button
               type="button"
               onClick={onCancelEdit}
-              className="text-xs text-muted hover:text-paper"
+              className="text-xs text-text-secondary hover:text-text-primary"
             >
               Скасувати
             </button>
@@ -137,20 +104,20 @@ function MessageRow({
               type="button"
               onClick={onSubmitEdit}
               disabled={!draft.trim()}
-              className="rounded-md bg-amber px-2.5 py-1 text-xs font-semibold text-ink-950 hover:bg-amber-deep disabled:opacity-50"
+              className="rounded-[10px] bg-accent-primary-btn px-3 py-1.5 text-xs font-semibold text-ink-950 hover:bg-amber-deep disabled:opacity-50"
             >
               Надіслати знову
             </button>
           </div>
-          <p className="px-1.5 pb-1 text-[11px] text-faint">
+          <p className="px-2 pb-1 text-[11px] text-text-tertiary">
             Редагування обриває розмову з цього місця
           </p>
         </div>
       )
     }
     return (
-      <div className="group relative ml-8">
-        <div className="rounded-xl rounded-br-sm border border-line bg-ink-700 px-3.5 py-2.5 text-sm whitespace-pre-wrap">
+      <div className="group relative ml-12 max-md:ml-6">
+        <div className="rounded-2xl rounded-br-md bg-bg-elevated px-4 py-3 text-[15px] whitespace-pre-wrap">
           {message.content}
         </div>
         {!streamingNow && (
@@ -158,7 +125,7 @@ function MessageRow({
             type="button"
             onClick={onStartEdit}
             aria-label="Редагувати це повідомлення"
-            className="absolute -bottom-2.5 right-2 rounded border border-line bg-ink-800 px-1.5 py-0.5 text-[10px] text-muted opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-paper"
+            className="absolute -bottom-3 right-3 rounded-lg bg-bg-elevated px-2 py-0.5 text-[11px] text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-text-primary"
           >
             редагувати
           </button>
@@ -170,10 +137,10 @@ function MessageRow({
   const matches = message.matches ?? []
 
   return (
-    <div className="mr-2">
+    <div>
       {matches.length > 0 && (
-        <div className="mb-2 flex flex-col gap-1.5" aria-label="Підібрані рішення">
-          <p className="font-mono text-[10px] tracking-[0.14em] text-faint uppercase">
+        <div className="mb-3 flex flex-col gap-1.5" aria-label="Підібрані рішення">
+          <p className="font-mono text-[10px] tracking-[0.14em] text-text-tertiary uppercase">
             Підібрані рішення · {matches.length} · показані на мапі
           </p>
           {matches.map((match) => (
@@ -183,26 +150,26 @@ function MessageRow({
       )}
 
       {message.content ? (
-        <AssistantMarkdown content={message.content} />
+        <AssistantMarkdown content={message.content} sources={message.sources} />
       ) : message.streaming ? (
-        <p className="animate-pulse-soft text-sm text-muted">
+        <p className="animate-pulse-soft text-[15px] text-text-secondary">
           {matches.length > 0 ? 'Пояснюю…' : 'Аналізую місто та підбираю рішення…'}
         </p>
       ) : null}
 
       {message.streaming && message.content && (
-        <span aria-hidden className="animate-pulse-soft ml-0.5 text-amber">
+        <span aria-hidden className="animate-pulse-soft ml-0.5 text-accent">
           ▍
         </span>
       )}
 
       {message.error && (
-        <div className="mt-2 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2">
+        <div className="mt-2 rounded-xl border border-danger/40 bg-danger/10 px-3.5 py-2.5">
           <p className="text-xs text-danger">{message.error}</p>
           <button
             type="button"
             onClick={onRegenerate}
-            className="mt-1 text-xs font-medium text-paper underline underline-offset-2 hover:text-amber"
+            className="mt-1 text-xs font-medium text-text-primary underline underline-offset-2 hover:text-accent"
           >
             Повторити
           </button>
@@ -213,7 +180,7 @@ function MessageRow({
         <button
           type="button"
           onClick={onRegenerate}
-          className="mt-1.5 font-mono text-[11px] text-faint hover:text-amber"
+          className="mt-2 font-mono text-[11px] text-text-tertiary hover:text-accent"
         >
           ↻ згенерувати ще раз
         </button>

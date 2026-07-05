@@ -1,8 +1,33 @@
 import { useCallback, useRef } from 'react'
 
 import { streamChat } from '../api/stream'
+import type { MapOp } from '../api/types'
+import { resolveCityRef } from '../lib/geo'
 import { historyFor, useChatStore } from '../stores/chatStore'
+import { useMapScene } from '../stores/mapScene'
 import { useMapStore } from '../stores/mapStore'
+
+function handleLiveMapOp(sessionId: string, op: MapOp) {
+  useChatStore.getState().appendMapOp(sessionId, op)
+  if (op.op === 'zoom_to') {
+    const map = useMapStore.getState()
+    if (Array.isArray(op.target)) {
+      const points = op.target
+        .map(resolveCityRef)
+        .filter((p): p is [number, number] => p !== null)
+      if (points.length > 1) {
+        useMapStore.setState({ fitTo: { points, key: Date.now() } })
+      } else if (points[0]) {
+        map.requestFlyTo(points[0], op.zoom ?? 6.5)
+      }
+    } else {
+      const point = resolveCityRef(op.target)
+      if (point) map.requestFlyTo(point, op.zoom ?? (op.target === 'home' ? 10 : 6.5))
+    }
+    return
+  }
+  useMapScene.getState().applyOp(sessionId, op, true)
+}
 
 /** Orchestrates one streaming turn: optimistic messages -> SSE -> stores. */
 export function useChat() {
@@ -33,13 +58,23 @@ export function useChat() {
     const { city, country } = store.homeCity
 
     void streamChat(
-      { message, city: city || undefined, country: country || undefined, history, limit: 6 },
+      {
+        message,
+        city: city || undefined,
+        country: country || undefined,
+        history,
+        limit: 6,
+        model: store.model,
+      },
       {
         onMatches: ({ profile, matches }) => {
           useChatStore.getState().updateLastAssistant(sessionId, { matches, profile })
           useMapStore.getState().setMatches(matches)
         },
         onToken: (t) => useChatStore.getState().appendToken(sessionId, t),
+        onMapOp: (op) => handleLiveMapOp(sessionId, op),
+        onSources: (sources) =>
+          useChatStore.getState().updateLastAssistant(sessionId, { sources }),
         onDone: () => {
           const chat = useChatStore.getState()
           chat.updateLastAssistant(sessionId, { streaming: false })

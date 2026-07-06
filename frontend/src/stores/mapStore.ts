@@ -17,6 +17,8 @@ interface MapState {
   mapMode: string | null
   /** Hour shown by the traffic mode, 0-23. */
   trafficHour: number
+  /** Density overlay opacity, 0..1. */
+  densityOpacity: number
 
   selectCity: (id: string | null) => void
   setMatches: (matches: Match[]) => void
@@ -26,6 +28,7 @@ interface MapState {
   consumeFitTo: () => void
   setMapMode: (mode: string | null) => void
   setTrafficHour: (hour: number) => void
+  setDensityOpacity: (value: number) => void
 }
 
 export const useMapStore = create<MapState>((set) => ({
@@ -36,6 +39,7 @@ export const useMapStore = create<MapState>((set) => ({
   fitTo: null,
   mapMode: null,
   trafficHour: 8, // morning peak reads well on first open
+  densityOpacity: 0.8,
 
   selectCity: (id) => set({ selectedCityId: id }),
   setMatches: (matches) => {
@@ -53,4 +57,5 @@ export const useMapStore = create<MapState>((set) => ({
   consumeFitTo: () => set({ fitTo: null }),
   setMapMode: (mode) => set({ mapMode: mode }),
   setTrafficHour: (hour) => set({ trafficHour: Math.max(0, Math.min(23, hour)) }),
+  setDensityOpacity: (value) => set({ densityOpacity: Math.max(0, Math.min(1, value)) }),
 }))

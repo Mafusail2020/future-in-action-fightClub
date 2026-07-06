@@ -4,8 +4,8 @@ import Supercluster from 'supercluster'
 
 import { useCities } from '../../api/queries'
 import type { City } from '../../api/types'
+import { useHomeCityRecord } from '../../hooks/useHomeCity'
 import { ukCityName } from '../../lib/cityNamesUk'
-import { useChatStore } from '../../stores/chatStore'
 import { useMapStore } from '../../stores/mapStore'
 
 /** Bolt-Food-style clustering: below this zoom nearby cities group into bubbles. */
@@ -40,7 +40,7 @@ export function CityMarkers() {
   const { current: map } = useMap()
   const selectedCityId = useMapStore((s) => s.selectedCityId)
   const selectCity = useMapStore((s) => s.selectCity)
-  const homeCity = useChatStore((s) => s.homeCity)
+  const { record: homeRecord } = useHomeCityRecord()
   const [viewKey, setViewKey] = useState(0)
   const [ghosts, setGhosts] = useState<Ghost[]>([])
   /** key -> screen-space offset the entering marker flies in from. */
@@ -58,27 +58,35 @@ export function CityMarkers() {
     }
   }, [map])
 
+  // Only cities that actually HAVE solutions get the clickable tag; rows that
+  // exist merely as map-layer hosts (e.g. the user's home city) keep their
+  // ordinary base-map label instead.
+  const taggedCities = useMemo(
+    () => (cities ?? []).filter((c) => (c.solution_count ?? 0) > 0 && c.id !== homeRecord?.id),
+    [cities, homeRecord?.id],
+  )
+
   const index = useMemo(() => {
     const sc = new Supercluster<{ city: City }>({
       radius: CLUSTER_RADIUS,
       maxZoom: CLUSTER_MAX_ZOOM,
     })
     sc.load(
-      (cities ?? []).map((city) => ({
+      taggedCities.map((city) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: [city.lng, city.lat] },
         properties: { city },
       })),
     )
     return sc
-  }, [cities])
+  }, [taggedCities])
 
   const features = useMemo(() => {
-    if (!cities?.length) return []
+    if (!taggedCities.length) return []
     const zoom = Math.floor(map?.getZoom() ?? 3)
     return index.getClusters([-180, -85, 180, 85], zoom) as Feature[]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, cities, map, viewKey])
+  }, [index, taggedCities, map, viewKey])
 
   // Merge/split choreography: entering features fly in from the feature they
   // split out of; exiting ones become ghosts flying into the feature that
@@ -139,8 +147,32 @@ export function CityMarkers() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [features, index, map])
 
+  const homeIsSolutionCity = !!homeRecord && (homeRecord.solution_count ?? 0) > 0
+
   return (
     <>
+      {homeIsSolutionCity && (
+        <Marker
+          longitude={homeRecord.lng}
+          latitude={homeRecord.lat}
+          anchor="center"
+          style={{ zIndex: 0 }}
+        >
+          <span
+            aria-hidden
+            style={{
+              fontFamily: "'Noto Sans', sans-serif",
+              fontWeight: 700,
+              fontSize: 14,
+              color: '#6d81a3',
+              textShadow: '0 0 3px #0b1220, 0 0 3px #0b1220',
+              pointerEvents: 'none',
+            }}
+          >
+            {ukCityName(homeRecord.name)}
+          </span>
+        </Marker>
+      )}
       {ghosts.map((ghost) => (
         <Marker key={`ghost-${ghost.key}`} longitude={ghost.lng} latitude={ghost.lat} anchor="center">
           <GhostDot dx={ghost.dx} dy={ghost.dy} count={ghost.ids.size} />
@@ -180,9 +212,6 @@ export function CityMarkers() {
         }
 
         const city = (feature.properties as { city: City }).city
-        const isHome =
-          city.name.toLowerCase() === homeCity.city.toLowerCase() &&
-          city.country.toLowerCase() === homeCity.country.toLowerCase()
         return (
           <Marker key={key} longitude={city.lng} latitude={city.lat} anchor="center">
             <FlyIn from={from}>
@@ -190,7 +219,6 @@ export function CityMarkers() {
                 type="button"
                 className="city-marker"
                 data-selected={selectedCityId === city.id}
-                data-home={isHome}
                 aria-label={`${ukCityName(city.name)}, ${city.country}: рішень — ${city.solution_count ?? 0}`}
                 aria-pressed={selectedCityId === city.id}
                 onClick={() => {

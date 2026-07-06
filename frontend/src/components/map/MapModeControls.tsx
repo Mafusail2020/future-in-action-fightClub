@@ -1,7 +1,7 @@
 import { Check, ChevronUp, Layers } from 'lucide-react'
 import { useState } from 'react'
 
-import { useMapLayer, useMapModes } from '../../api/queries'
+import { useCities, useMapLayer, useMapModes } from '../../api/queries'
 import { useHomeCityRecord } from '../../hooks/useHomeCity'
 import { FALLBACK_MODES, formatHour, LEGEND_LABELS, NO_DATA_COLOR } from '../../lib/mapModes'
 import { useChatStore } from '../../stores/chatStore'
@@ -21,11 +21,15 @@ export function MapModeControls() {
   const setMapMode = useMapStore((s) => s.setMapMode)
   const trafficHour = useMapStore((s) => s.trafficHour)
   const setTrafficHour = useMapStore((s) => s.setTrafficHour)
+  const densityOpacity = useMapStore((s) => s.densityOpacity)
+  const setDensityOpacity = useMapStore((s) => s.setDensityOpacity)
   const requestFlyTo = useMapStore((s) => s.requestFlyTo)
 
   const [open, setOpen] = useState(true)
   const { record, isPending: citiesPending } = useHomeCityRecord()
+  const cities = useCities() // deduped with the hook; here only for the error state
   const modes = useMapModes(record?.id ?? null)
+  const backendDown = cities.isError || modes.isError
   const hasData = (modes.data?.length ?? 0) > 0
   // No precomputed layers -> still show every mode pill, just without data.
   const available = hasData ? modes.data! : FALLBACK_MODES
@@ -122,13 +126,20 @@ export function MapModeControls() {
       </div>
 
       {/* Data remark sits under the switcher */}
-      {!searching && !hasData && (
-        <p className="rounded-[10px] border border-border-subtle bg-bg-elevated/80 px-3 py-1.5 text-center font-mono text-xs tracking-wide text-text-tertiary uppercase backdrop-blur">
-          Немає даних для міста
+      {backendDown ? (
+        <p className="rounded-[10px] border border-danger/40 bg-danger/10 px-3 py-1.5 text-center font-mono text-xs tracking-wide text-danger uppercase backdrop-blur">
+          Сервер недоступний
         </p>
+      ) : (
+        !searching &&
+        !hasData && (
+          <p className="rounded-[10px] border border-border-subtle bg-bg-elevated/80 px-3 py-1.5 text-center font-mono text-xs tracking-wide text-text-tertiary uppercase backdrop-blur">
+            Немає даних для міста
+          </p>
+        )
       )}
 
-      {active && layer.isPending && (
+      {active && hasData && layer.isPending && layer.isFetching && (
         <div className="flex items-center gap-2 rounded-[10px] border border-border-subtle bg-bg-elevated/80 px-3 py-1.5 backdrop-blur">
           <span
             aria-hidden
@@ -142,6 +153,28 @@ export function MapModeControls() {
         <p className="rounded-[10px] border border-danger/40 bg-danger/10 px-3 py-1.5 text-xs text-danger backdrop-blur">
           Не вдалося завантажити шар
         </p>
+      )}
+
+      {/* opacity slider (density) */}
+      {active?.kind === 'polygon' && layer.data && (
+        <div className="flex items-center gap-2.5 rounded-[10px] border border-border-subtle bg-bg-elevated/80 px-3 py-2 backdrop-blur">
+          <span className="font-mono text-[10px] tracking-wide text-text-tertiary uppercase">
+            Прозорість
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={Math.round(densityOpacity * 100)}
+            onChange={(e) => setDensityOpacity(Number(e.target.value) / 100)}
+            aria-label="Прозорість шару щільності"
+            className="w-24 accent-accent"
+          />
+          <span className="w-8 text-right font-mono text-xs text-text-primary">
+            {Math.round(densityOpacity * 100)}
+          </span>
+        </div>
       )}
 
       {/* 24h slider (traffic) */}
@@ -171,14 +204,17 @@ export function MapModeControls() {
             <span>{LEGEND_LABELS[active.mode]?.[0] ?? 'Менше'}</span>
             <span>{LEGEND_LABELS[active.mode]?.[1] ?? 'Більше'}</span>
           </div>
-          <div className="flex items-center gap-1.5 font-mono text-[10px] text-text-tertiary">
-            <span
-              aria-hidden
-              className="inline-block h-2 w-4 rounded-sm"
-              style={{ background: NO_DATA_COLOR, opacity: 0.6 }}
-            />
-            немає даних
-          </div>
+          {/* heat gradient has no gray features — unscored areas are simply unlit */}
+          {active.kind === 'line' && (
+            <div className="flex items-center gap-1.5 font-mono text-[10px] text-text-tertiary">
+              <span
+                aria-hidden
+                className="inline-block h-2 w-4 rounded-sm"
+                style={{ background: NO_DATA_COLOR, opacity: 0.6 }}
+              />
+              немає даних
+            </div>
+          )}
         </div>
       )}
     </div>

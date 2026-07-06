@@ -14,8 +14,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-5"
 
-    # RAG embeddings (agentic search tools degrade gracefully without it)
+    # RAG embeddings; also the fallback LLM provider when the Anthropic key
+    # is missing (agentic search tools degrade gracefully without it)
     openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
 
     # OSM geometry source for map layers; kumi.systems mirror is a drop-in fallback:
     # OVERPASS_URL=https://overpass.kumi.systems/api/interpreter

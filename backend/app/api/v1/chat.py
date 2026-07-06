@@ -4,7 +4,7 @@ from queue import Empty, SimpleQueue
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
-from app.agent.llm import LLM
+from app.agent.llm import make_llm
 from app.agent.map_ops import MAX_OPS_PER_TURN, validate_op
 from app.agent.pipeline import Agent
 from app.dependencies import get_agent
@@ -21,7 +21,7 @@ def chat(req: ChatRequest, agent: Agent = Depends(get_agent)) -> StreamingRespon
     catalog; invalid ops are dropped, never break the stream).
     """
     if req.model:  # per-request model override (agent instance is per-request)
-        agent.llm = LLM(model=req.model)
+        agent.llm = make_llm(model=req.model)
 
     def event_stream():
         try:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.agent.llm import LLM
+from app.agent.llm import make_llm
 from app.agent.pipeline import Agent
 from app.db.client import get_supabase
 from app.db.repositories.cities import CitiesRepository
@@ -35,7 +35,7 @@ def get_rag_repo() -> RagRepository:
 def get_agent() -> Agent:
     client = get_supabase()
     return Agent(
-        llm=LLM(),
+        llm=make_llm(),
         cities=CitiesRepository(client),
         solutions=SolutionsRepository(client),
         profiles=ProfilesRepository(client),

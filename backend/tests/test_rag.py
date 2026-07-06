@@ -131,3 +131,29 @@ def test_search_tools_join_only_with_embeddings(monkeypatch):
     monkeypatch.setattr(pl, "embeddings_available", lambda: True)
     list(agent.answer_stream("q", None, [], [], on_map_op=lambda _: None))
     assert llm.tools_seen == ["direct_map", "search_solutions", "search_city_state"]
+
+
+# --- provider fallback ---------------------------------------------------------
+
+
+def test_make_llm_falls_back_to_openai(monkeypatch):
+    from app.agent import llm as llm_module
+    from app.agent.llm_openai import OpenAILLM
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    try:
+        made = llm_module.make_llm(model="claude-opus-4-8")
+        assert isinstance(made, OpenAILLM)  # claude override ignored on fallback
+
+        monkeypatch.setenv("OPENAI_API_KEY", "")
+        get_settings.cache_clear()
+        try:
+            llm_module.make_llm()
+            raise AssertionError("expected RuntimeError")
+        except RuntimeError as exc:
+            assert "Neither" in str(exc)
+    finally:
+        get_settings.cache_clear()

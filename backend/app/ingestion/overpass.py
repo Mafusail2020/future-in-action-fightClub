@@ -22,6 +22,14 @@ _RETRIES = 3
 _RETRY_SLEEP_S = 30
 _THROTTLE_S = 1.0
 
+# Overpass usage policy requires an identifying User-Agent; anonymous
+# library defaults (python-httpx/x) get rejected with 406 Not Acceptable.
+_HEADERS = {
+    "User-Agent": "CitySolutionsAggregator/0.1 "
+    "(hackathon project; https://github.com/Mafusail2020/future-in-action-fightClub)",
+    "Accept": "application/json",
+}
+
 _last_call_at = 0.0
 
 
@@ -41,6 +49,17 @@ def districts_query(box: tuple[float, float, float, float]) -> str:
   way["place"~"^(suburb|quarter|neighbourhood)$"]({s},{w},{n},{e});
   node["place"~"^(suburb|quarter|neighbourhood)$"]({s},{w},{n},{e});
 );
+out geom;
+"""
+
+
+def city_boundary_query(box: tuple[float, float, float, float]) -> str:
+    """Admin relations around the city (is_in is too heavy for public instances);
+    the caller picks the smallest one containing the center point."""
+    s, w, n, e = box
+    return f"""
+[out:json][timeout:120];
+relation["boundary"="administrative"]["admin_level"~"^(6|7|8|9)$"]({s},{w},{n},{e});
 out geom;
 """
 
@@ -69,7 +88,7 @@ def fetch(query: str, cache_key: str, force: bool = False) -> dict:
             time.sleep(wait)
         _last_call_at = time.monotonic()
 
-        response = httpx.post(url, data={"data": query}, timeout=200)
+        response = httpx.post(url, data={"data": query}, headers=_HEADERS, timeout=200)
         if response.status_code in _RETRY_STATUSES and attempt < _RETRIES - 1:
             print(f"  overpass {response.status_code}, retrying in {_RETRY_SLEEP_S}s…")
             time.sleep(_RETRY_SLEEP_S)

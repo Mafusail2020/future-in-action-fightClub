@@ -21,6 +21,19 @@ def load_prompt(name: str) -> str:
     return (_PROMPTS_DIR / name).read_text(encoding="utf-8")
 
 
+def make_llm(model: str | None = None):
+    """Provider fallback: Anthropic when its key exists, else OpenAI runs
+    everything (the `model` override only applies to its own provider)."""
+    settings = get_settings()
+    if settings.anthropic_api_key:
+        return LLM(model=model)
+    if settings.openai_api_key:
+        from app.agent.llm_openai import OpenAILLM
+
+        return OpenAILLM()  # claude model ids don't apply here
+    raise RuntimeError("Neither ANTHROPIC_API_KEY nor OPENAI_API_KEY is configured")
+
+
 class LLM:
     def __init__(self, api_key: str | None = None, model: str | None = None):
         settings = get_settings()

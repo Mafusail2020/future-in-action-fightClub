@@ -215,3 +215,61 @@ def roads_from_overpass(data: dict) -> list[dict]:
         }
         for name, entry in chosen
     ]
+
+
+# --- City boundary ----------------------------------------------------------------
+
+def _ring_area(ring: list[list[float]]) -> float:
+    """Shoelace, abs value in deg² — only for picking the smallest relation."""
+    total = 0.0
+    for i in range(len(ring) - 1):
+        total += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
+    return abs(total) / 2
+
+
+def _in_ring(x: float, y: float, ring: list[list[float]]) -> bool:
+    inside = False
+    j = len(ring) - 1
+    for i in range(len(ring)):
+        xi, yi = ring[i]
+        xj, yj = ring[j]
+        if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
+def boundary_from_overpass(data: dict, center: tuple[float, float]) -> dict | None:
+    """The smallest administrative relation CONTAINING the center point —
+    i.e. the actual city boundary. Feature tagged `_boundary: true`."""
+    lat, lng = center
+    best: tuple[float, dict] | None = None
+    for el in data.get("elements", []):
+        if el.get("type") != "relation":
+            continue
+        outers = [
+            _way_coords(m)
+            for m in el.get("members", [])
+            if m.get("role") == "outer" and m.get("geometry")
+        ]
+        rings = _stitch_rings(outers)
+        if not rings:
+            continue
+        rings = [round_coords(simplify(r, 5e-5), 5) for r in rings]
+        if not any(_in_ring(lng, lat, r) for r in rings):
+            continue  # bbox brushed it, but the city center is outside
+        area = sum(_ring_area(r) for r in rings)
+        geometry = (
+            {"type": "Polygon", "coordinates": [rings[0]]}
+            if len(rings) == 1
+            else {"type": "MultiPolygon", "coordinates": [[r] for r in rings]}
+        )
+        name = (el.get("tags") or {}).get("name", "")
+        feature = {
+            "type": "Feature",
+            "geometry": geometry,
+            "properties": {"_boundary": True, "name": name},
+        }
+        if best is None or area < best[0]:
+            best = (area, feature)
+    return best[1] if best else None

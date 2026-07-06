@@ -79,3 +79,36 @@ def test_traffic_batches_of_twenty():
     assert len(llm.calls) == 3
     assert scored == 45
     assert features[44]["properties"]["h8"] == 0.1
+
+
+def test_junk_score_items_are_skipped_not_fatal():
+    """Regression: the model emitted bare strings inside `scores` -> crash."""
+    features = [_road("вулиця Київська")]
+    llm = FakeLLM(
+        [
+            [
+                "вулиця Київська",  # bare string instead of an object
+                {"name": "вулиця Київська"},  # missing the value key
+                {"name": "вулиця Київська", "condition": "поганий"},  # non-numeric
+                {"name": "вулиця Київська", "condition": 0.4},  # finally valid
+            ]
+        ]
+    )
+    scored = score_features(
+        llm, "road_condition", {"name": "Zhytomyr", "country": "Ukraine"}, features
+    )
+    assert scored == 1
+    assert features[0]["properties"]["condition"] == 0.4
+
+
+def test_duplicate_names_all_receive_score():
+    """Two features sharing a name (split segments) both get the score."""
+    features = [_road("вулиця Київська"), _road("вулиця Київська")]
+    llm = FakeLLM([[{"name": "вулиця Київська", "condition": 0.6}]])
+    scored = score_features(
+        llm, "road_condition", {"name": "Zhytomyr", "country": "Ukraine"}, features
+    )
+    assert scored == 2
+    assert all(f["properties"]["condition"] == 0.6 for f in features)
+    # the duplicated name is sent to the LLM once
+    assert llm.calls[0].count("вулиця Київська") == 1

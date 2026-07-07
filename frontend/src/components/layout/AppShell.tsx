@@ -7,6 +7,7 @@ import { ProblemsDropdown } from '../catalog/ProblemsDropdown'
 import { ChatCanvas } from '../chat/ChatCanvas'
 import { Sidebar } from '../chat/Sidebar'
 import { CityPanel } from '../city/CityPanel'
+import { DossierPanel } from '../city/DossierPanel'
 import { MapModeControls } from '../map/MapModeControls'
 import { WorldMap } from '../map/WorldMap'
 
@@ -49,9 +50,11 @@ export function AppShell() {
       }`}
     >
       <div className="relative min-h-0 flex-1">
-        {/* Fixed map canvas — never moves, never resizes */}
+        {/* Fixed map canvas — never moves, never resizes. `isolate` traps the
+            z-indexes of map markers inside this layer so they can never paint
+            over the sidebar/chat that overlay it. */}
         <div
-          className={`absolute inset-0 ${mobileView === 'chat' ? 'max-md:invisible' : ''}`}
+          className={`absolute inset-0 isolate ${mobileView === 'chat' ? 'max-md:invisible' : ''}`}
           aria-label="Мапа міст і рішень"
         >
           <WorldMap />
@@ -81,6 +84,7 @@ export function AppShell() {
           <div className="relative min-w-0 flex-1">
             <div className="pointer-events-auto contents">
               <CityPanel />
+              <DossierPanel />
               {/* Corner stack: dropdown trigger with the home button right under it */}
               <div className="absolute top-4 left-4 z-10 flex w-fit flex-col gap-2">
                 <ProblemsDropdown />

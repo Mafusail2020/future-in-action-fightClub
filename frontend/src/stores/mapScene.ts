@@ -5,14 +5,18 @@ import type { ChatMessage } from './chatStore'
 
 export interface SceneMark {
   id: string
-  city: CityRef
+  city: CityRef | null
+  /** Raw [lng, lat] anchor (geocoded street level) — wins over `city`. */
+  point?: [number, number]
   kind: 'pin' | 'star' | 'warning' | 'check' | 'flag'
   label?: string
 }
 
 export interface SceneCallout {
   id: string
-  city: CityRef
+  city: CityRef | null
+  /** Raw [lng, lat] anchor (geocoded street level) — wins over `city`. */
+  point?: [number, number]
   text: string
   side: 'auto' | 'left' | 'right'
 }
@@ -52,7 +56,7 @@ const emptyScene = (): Scene => ({
   spotlight: null,
 })
 
-const MAX = { marks: 20, callouts: 3, arcs: 10 }
+const MAX = { marks: 20, arcs: 10 }
 let seq = 0
 const nextId = () => `op-${++seq}`
 
@@ -67,6 +71,8 @@ interface MapSceneState {
   rebuild: (sessionId: string, messages: ChatMessage[]) => void
   removeCallout: (sessionId: string, id: string) => void
   expireHighlight: (sessionId: string, id: string) => void
+  /** User pressed the map — dismiss highlights and the spotlight dimming. */
+  clearEffects: (sessionId: string) => void
   clearScene: (sessionId: string) => void
   consumeTour: () => void
 }
@@ -78,16 +84,29 @@ function reduce(scene: Scene, op: MapOp): Scene {
         ...scene,
         marks: [
           ...scene.marks.slice(-(MAX.marks - 1)),
-          { id: nextId(), city: op.city_id, kind: op.kind ?? 'pin', label: op.label },
+          {
+            id: nextId(),
+            city: op.city_id ?? null,
+            point: op.lat != null && op.lng != null ? [op.lng, op.lat] : undefined,
+            kind: op.kind ?? 'pin',
+            label: op.label,
+          },
         ],
       }
     case 'callout': {
-      const kept = scene.callouts.filter((c) => c.city !== op.city_id).slice(-(MAX.callouts - 1))
+      // One callout per city; point-anchored callouts stack freely, no cap.
+      const kept = scene.callouts.filter((c) => op.city_id == null || c.city !== op.city_id)
       return {
         ...scene,
         callouts: [
           ...kept,
-          { id: nextId(), city: op.city_id, text: op.text, side: op.side ?? 'auto' },
+          {
+            id: nextId(),
+            city: op.city_id ?? null,
+            point: op.lat != null && op.lng != null ? [op.lng, op.lat] : undefined,
+            text: op.text,
+            side: op.side ?? 'auto',
+          },
         ],
       }
     }
@@ -200,6 +219,18 @@ export const useMapScene = create<MapSceneState>((set, get) => ({
         scenes: {
           ...s.scenes,
           [sessionId]: { ...scene, highlights: scene.highlights.filter((h) => h.id !== id) },
+        },
+      }
+    }),
+
+  clearEffects: (sessionId) =>
+    set((s) => {
+      const scene = s.scenes[sessionId]
+      if (!scene || (scene.highlights.length === 0 && scene.spotlight === null)) return s
+      return {
+        scenes: {
+          ...s.scenes,
+          [sessionId]: { ...scene, highlights: [], spotlight: null },
         },
       }
     }),

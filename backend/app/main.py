@@ -8,6 +8,7 @@ from app.api.v1 import (
     chat,
     cities,
     city_docs,
+    dossier,
     health,
     map_layers,
     match,
@@ -36,7 +37,7 @@ def create_app() -> FastAPI:
     # zlib-buffers /chat SSE tokens. The big map-layer payloads gzip themselves
     # inside their endpoint instead (app/api/v1/map_layers.py).
     app.include_router(health.router)
-    for module in (cities, solutions, categories, profile, match, chat, city_docs, map_layers):
+    for module in (cities, solutions, categories, profile, match, chat, city_docs, dossier, map_layers):
         app.include_router(module.router, prefix="/api/v1")
 
     return app

@@ -1,3 +1,4 @@
+import type { ExpressionSpecification } from 'maplibre-gl'
 import { useEffect, useMemo, useState } from 'react'
 import { Layer, Source } from 'react-map-gl/maplibre'
 
@@ -6,7 +7,7 @@ import { useHomeCityRecord } from '../../hooks/useHomeCity'
 import { useMapStore } from '../../stores/mapStore'
 import {
   activeProp,
-  densityImage,
+  densityMosaic,
   MODE_ROAD_WIDTH,
   NO_DATA_COLOR,
   rampExpression,
@@ -17,6 +18,10 @@ import {
 /** All labels sit above the overlay: this is the first label layer in mapStyle.ts. */
 const BEFORE_ID = 'place-city-labels'
 const GROW_MS = 2600
+const DENSITY_FADE_MS = 1500
+// Portion of the timeline spent staggering cell start times; the rest is each
+// cell's own fade. A cell with delay d starts at d*SPREAD and finishes by 1.
+const FADE_SPREAD = 0.55
 
 /**
  * GeoJSON overlay for the active map mode of the user's home city.
@@ -51,9 +56,9 @@ export function ModeLayers() {
     return segmentizeLines(layer.data.feature_collection, center)
   }, [layer.data, center, descriptor?.kind])
 
-  const heat = useMemo(() => {
+  const mosaic = useMemo(() => {
     if (!layer.data || descriptor?.kind !== 'polygon') return null
-    return densityImage(layer.data.feature_collection, descriptor.value_prop)
+    return densityMosaic(layer.data.feature_collection, descriptor.value_prop)
   }, [layer.data, descriptor])
 
   // The expanding circle: starts INSTANTLY on activation — roads grow while the
@@ -81,34 +86,60 @@ export function ModeLayers() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [descriptor?.mode, lineData])
 
+  // Density fade: `heatProgress` 0->1 on activation; each cell's opacity ramps
+  // from its own staggered start (delay*SPREAD) so tiles pop in randomly.
+  const [heatProgress, setHeatProgress] = useState(1)
+  useEffect(() => {
+    if (descriptor?.kind !== 'polygon' || !mosaic) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setHeatProgress(1)
+      return
+    }
+    setHeatProgress(0)
+    let raf = 0
+    const started = performance.now()
+    const step = (now: number) => {
+      const t = Math.min((now - started) / DENSITY_FADE_MS, 1)
+      setHeatProgress(t)
+      if (t < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [descriptor?.mode, mosaic])
+
   if (!descriptor || !layer.data) return null
 
   if (descriptor.kind === 'polygon') {
-    if (!heat) return null
+    if (!mosaic) return null
+    const fade = 1 - FADE_SPREAD
+    // per-cell opacity = densityOpacity * clamp01((progress - delay*SPREAD)/fade)
+    const cellOpacity: ExpressionSpecification = [
+      '*',
+      densityOpacity,
+      [
+        'max',
+        0,
+        ['min', 1, ['/', ['-', heatProgress, ['*', ['get', 'delay'], FADE_SPREAD]], fade]],
+      ],
+    ]
     return (
       <>
-        <Source key="mode-heat" id="mode-heat-src" type="image" url={heat.url} coordinates={heat.coordinates}>
+        {/* Fully-vector mosaic: crisp at any zoom; fill-outline-color is the grout,
+            which fades per-cell together with the fill. */}
+        <Source key="mode-mosaic" id="mode-mosaic-src" type="geojson" data={mosaic.cells}>
           <Layer
-            id="mode-heat-img"
-            type="raster"
-            beforeId={BEFORE_ID}
-            paint={{ 'raster-opacity': densityOpacity, 'raster-fade-duration': 150 }}
-          />
-        </Source>
-        {/* Crisp vector grout — stays sharp at any zoom, unlike the raster fill */}
-        <Source key="mode-grout" id="mode-grout-src" type="geojson" data={heat.grout}>
-          <Layer
-            id="mode-grout"
-            type="line"
+            id="mode-mosaic-fill"
+            type="fill"
             beforeId={BEFORE_ID}
             paint={{
-              'line-color': 'rgba(11, 18, 32, 0.7)',
-              'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.4, 14, 1, 16, 1.6],
-              'line-opacity': densityOpacity,
+              'fill-color': ['get', 'color'] as unknown as string,
+              'fill-opacity': cellOpacity,
+              'fill-outline-color': 'rgba(11, 18, 32, 0.7)',
             }}
           />
         </Source>
-        {/* One clean approximate city border (districts' hull) above the gradient */}
+        {/* One clean city border above the mosaic */}
         <Source
           key="mode-border"
           id="mode-border-src"
@@ -117,7 +148,7 @@ export function ModeLayers() {
             type: 'Feature',
             geometry: {
               type: 'MultiLineString',
-              coordinates: heat.rings.map((ring) => [...ring, ring[0]]),
+              coordinates: mosaic.rings.map((ring) => [...ring, ring[0]]),
             },
             properties: {},
           }}

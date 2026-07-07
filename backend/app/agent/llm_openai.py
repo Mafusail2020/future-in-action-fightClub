@@ -42,6 +42,7 @@ class OpenAILLM:
         schema: dict,
         tool_name: str = "emit",
         max_tokens: int = 4096,
+        thinking: dict | None = None,  # accepted for parity; OpenAI path has no thinking control
     ) -> dict:
         resp = self.client.chat.completions.create(
             model=self.model,
@@ -84,7 +85,10 @@ class OpenAILLM:
         on_tool: Callable[[str, dict], str | None],
         max_tokens: int = 2048,
         max_rounds: int = 12,
-    ) -> Iterator[str]:
+        effort: str = "medium",  # accepted for parity; OpenAI path has no extended thinking
+    ) -> Iterator[dict]:
+        """Same typed-event contract as the Anthropic wrapper, minus thinking:
+        yields {"type": "text"|"tool", ...}."""
         convo: list[dict] = [{"role": "system", "content": system}, *messages]
         openai_tools = [_to_openai_tool(t) for t in tools]
 
@@ -105,7 +109,7 @@ class OpenAILLM:
                 choice = chunk.choices[0]
                 if choice.delta.content:
                     content += choice.delta.content
-                    yield choice.delta.content
+                    yield {"type": "text", "text": choice.delta.content}
                 for tc in choice.delta.tool_calls or []:
                     slot = calls.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
                     if tc.id:
@@ -134,6 +138,7 @@ class OpenAILLM:
             }
             convo.append(assistant_msg)
             for c in calls.values():
+                yield {"type": "tool", "name": c["name"]}
                 try:
                     args = json.loads(c["arguments"] or "{}")
                 except json.JSONDecodeError:

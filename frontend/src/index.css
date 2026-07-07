@@ -349,9 +349,16 @@ body {
 @keyframes callout-line {
   to { stroke-dashoffset: 0; }
 }
+@keyframes callout-pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.callout-pop {
+  animation: callout-pop 240ms ease-out both;
+}
 @keyframes ping-slow {
-  0% { transform: scale(0.7); opacity: 0.9; }
-  70%, 100% { transform: scale(1.5); opacity: 0; }
+  0% { transform: scale(0.55); opacity: 1; }
+  75%, 100% { transform: scale(1.9); opacity: 0; }
 }
 .animate-ping-slow {
   animation: ping-slow 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;

@@ -54,14 +54,11 @@ class FakeToolLLM:
     """Emits two text chunks with a tool call round in between."""
 
     def stream_with_tools(self, system, messages, tools, on_tool, **kwargs):
-        assert tools and tools[0]["name"] == "direct_map"
-        yield "Погляньте на "
+        assert any(t["name"] == "direct_map" for t in tools)
+        yield {"type": "text", "text": "Погляньте на "}
         on_tool("direct_map", {"op": "callout", "city_id": "c-vienna", "text": "Тут"})
         on_tool("direct_map", {"op": "mark", "city_id": "c-atlantis"})  # invalid, dropped later
-        yield "Відень."
-
-    def stream(self, **kwargs):  # pragma: no cover
-        raise AssertionError("map mode must use stream_with_tools")
+        yield {"type": "text", "text": "Відень."}
 
 
 class FakeCitiesRepo:
@@ -76,10 +73,11 @@ def test_answer_stream_forwards_ops_and_text():
     profile = CityProfile(city="Zhytomyr", country="Ukraine", problem_domains=[], summary="s")
 
     received: list[dict] = []
-    text = "".join(
-        agent.answer_stream("Покажи Відень", profile, [], [], on_map_op=received.append)
+    events = list(
+        agent.answer_stream("Покажи Відень", profile, [], on_map_op=received.append)
     )
 
+    text = "".join(e["text"] for e in events if e["type"] == "text")
     assert text == "Погляньте на Відень."
     assert [op["op"] for op in received] == ["callout", "mark"]  # raw forward; route validates
 
@@ -90,13 +88,16 @@ def test_answer_stream_forwards_ops_and_text():
 class FakeAgentForRoute:
     cities = FakeCitiesRepo()
 
-    def answer_stream(self, message, profile, matches, history,
-                      on_map_op=None, sources_out=None):
-        yield "Дивіться. "
+    def build_profile(self, city, country):
+        return None
+
+    def answer_stream(self, message, profile, history, limit=6,
+                      on_map_op=None, on_matches=None, sources_out=None):
+        yield {"type": "text", "text": "Дивіться. "}
         if on_map_op:
             on_map_op({"op": "zoom_to", "target": "c-vienna"})
             on_map_op({"op": "mark", "city_id": "c-atlantis"})  # unknown id -> dropped
-        yield "Готово."
+        yield {"type": "text", "text": "Готово."}
 
 
 def test_route_emits_validated_map_ops():

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, model_validator
 
 MAX_OPS_PER_TURN = 8
 _HOME = "home"
@@ -19,8 +19,19 @@ CityRef = str  # a city id from the catalog, or "home" (the user's city)
 
 class ZoomToOp(BaseModel):
     op: Literal["zoom_to"]
-    target: CityRef | list[CityRef]
-    zoom: float | None = Field(default=None, ge=1, le=14)
+    # Either a city reference (id / "home" / list of ids) or raw coordinates
+    # from geocode_place — coordinates unlock street-level camera moves.
+    target: CityRef | list[CityRef] | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+    zoom: float | None = Field(default=None, ge=1, le=18)
+
+    @model_validator(mode="after")
+    def _target_or_coords(self):
+        has_coords = self.lat is not None and self.lng is not None
+        if (self.target is None) == (not has_coords):
+            raise ValueError("zoom_to needs either target or lat+lng")
+        return self
 
 
 class HighlightOp(BaseModel):
@@ -30,16 +41,29 @@ class HighlightOp(BaseModel):
     duration_s: float | None = Field(default=None, ge=1, le=60)
 
 
-class MarkOp(BaseModel):
+class _CityOrPoint(BaseModel):
+    """Anchor: a catalog city id / 'home', or raw geocoded coordinates."""
+
+    city_id: CityRef | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+
+    @model_validator(mode="after")
+    def _city_or_coords(self):
+        has_coords = self.lat is not None and self.lng is not None
+        if (self.city_id is None) == (not has_coords):
+            raise ValueError("needs either city_id or lat+lng")
+        return self
+
+
+class MarkOp(_CityOrPoint):
     op: Literal["mark"]
-    city_id: CityRef
     kind: Literal["pin", "star", "warning", "check", "flag"] = "pin"
     label: str | None = Field(default=None, max_length=60)
 
 
-class CalloutOp(BaseModel):
+class CalloutOp(_CityOrPoint):
     op: Literal["callout"]
-    city_id: CityRef
     text: str = Field(min_length=1, max_length=200)
     side: Literal["auto", "left", "right"] = "auto"
 
@@ -86,14 +110,17 @@ class _OpEnvelope(BaseModel):
 
 
 def _refs(op: BaseModel) -> list[str]:
-    """Every city reference an op makes (for id validation)."""
+    """Every city reference an op makes (for id validation). Coordinate-anchored
+    ops contribute no refs — their lat/lng ranges are validated by the models."""
     match op:
+        case ZoomToOp(target=None):
+            return []
         case ZoomToOp(target=target):
             return target if isinstance(target, list) else [target]
         case HighlightOp(city_ids=ids) | SpotlightOp(city_ids=ids):
             return list(ids)
         case MarkOp(city_id=cid) | CalloutOp(city_id=cid):
-            return [cid]
+            return [] if cid is None else [cid]
         case ConnectOp(from_=a, to=b):
             return [a, b]
         case TourOp(stops=stops):
@@ -120,12 +147,14 @@ MAP_OP_TOOL: dict = {
         "Direct the interactive world map the user is looking at. Use ONLY when it adds "
         "spatial value (showing a city, comparing places, guiding attention) — most answers "
         "need no map ops. Reference cities strictly by ids from the city catalog or the "
-        "matched solutions; the string 'home' means the user's own city. Ops: zoom_to "
-        "(fly camera), highlight (pulse/ring/glow on cities), mark (pin/star/warning/check/"
-        "flag + short label), callout (short text bubble anchored to a city — prefer this "
-        "when pointing at one place), connect (animated arc between two cities), tour "
-        "(2-5 stop camera journey with texts), spotlight (dim everything except chosen "
-        "cities; off:true to undo), clear (reset your previous map drawings)."
+        "matched solutions; the string 'home' means the user's own city. For places INSIDE a "
+        "city (streets, squares, parks), first call geocode_place, then anchor zoom_to/mark/"
+        "callout with the returned lat+lng instead of a city id (zoom 15-17 suits streets). "
+        "Ops: zoom_to (fly camera), highlight (pulse/ring/glow on cities), mark (pin/star/"
+        "warning/check/flag + short label), callout (short text bubble anchored to a city or "
+        "point — prefer this when pointing at one place), connect (animated arc between two "
+        "cities), tour (2-5 stop camera journey with texts), spotlight (dim everything except "
+        "chosen cities; off:true to undo), clear (reset your previous map drawings)."
     ),
     "input_schema": {
         "type": "object",
@@ -144,7 +173,12 @@ MAP_OP_TOOL: dict = {
                     {"type": "array", "items": {"type": "string"}, "maxItems": 10},
                 ],
             },
-            "zoom": {"type": "number", "minimum": 1, "maximum": 14},
+            "lat": {
+                "type": "number", "minimum": -90, "maximum": 90,
+                "description": "zoom_to/mark/callout: point anchor from geocode_place (with lng)",
+            },
+            "lng": {"type": "number", "minimum": -180, "maximum": 180},
+            "zoom": {"type": "number", "minimum": 1, "maximum": 18},
             "city_ids": {"type": "array", "items": {"type": "string"}, "maxItems": 10},
             "style": {"type": "string", "enum": ["pulse", "ring", "glow"]},
             "duration_s": {"type": "number", "minimum": 1, "maximum": 60},

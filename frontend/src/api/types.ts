@@ -94,15 +94,54 @@ export interface RagSource {
 /** Label ("S1") -> source, shipped once per turn via the `sources` SSE event. */
 export type SourcesMap = Record<string, RagSource>
 
+// --- Deep city dossier (mirror backend/app/domain/dossier.py) -----------------
+
+export type SourceKind = 'wikidata' | 'wikipedia' | 'osm' | 'web' | 'ai'
+export type Confidence = 'high' | 'medium' | 'low'
+
+export interface CityFact {
+  label: string
+  value: string
+  source: string
+  url?: string | null
+}
+
+export interface DossierSource {
+  id: string
+  title: string
+  url?: string | null
+  kind: SourceKind
+}
+
+export interface DossierSection {
+  key: string
+  title: string
+  body: string
+  confidence: Confidence
+  sourced: boolean
+}
+
+export interface Dossier {
+  city: string
+  country: string
+  headline?: string | null
+  facts: CityFact[]
+  sections: DossierSection[]
+  sources: DossierSource[]
+  generated_at?: string | null
+  counts: { facts: number; sections: number; sources: number }
+}
+
 // --- Map director ops (mirror backend/app/agent/map_ops.py) -------------------
 
 export type CityRef = string // city id or "home"
 
 export type MapOp =
-  | { op: 'zoom_to'; target: CityRef | CityRef[]; zoom?: number }
+  // zoom_to/mark/callout anchor to a city ref OR raw lat+lng (geocoded street level)
+  | { op: 'zoom_to'; target?: CityRef | CityRef[]; lat?: number; lng?: number; zoom?: number }
   | { op: 'highlight'; city_ids: CityRef[]; style?: 'pulse' | 'ring' | 'glow'; duration_s?: number }
-  | { op: 'mark'; city_id: CityRef; kind?: 'pin' | 'star' | 'warning' | 'check' | 'flag'; label?: string }
-  | { op: 'callout'; city_id: CityRef; text: string; side?: 'auto' | 'left' | 'right' }
+  | { op: 'mark'; city_id?: CityRef; lat?: number; lng?: number; kind?: 'pin' | 'star' | 'warning' | 'check' | 'flag'; label?: string }
+  | { op: 'callout'; city_id?: CityRef; lat?: number; lng?: number; text: string; side?: 'auto' | 'left' | 'right' }
   | { op: 'connect'; from: CityRef; to: CityRef; label?: string }
   | { op: 'tour'; stops: { city_id: CityRef; text?: string; hold_s?: number }[]; zoom?: number }
   | { op: 'spotlight'; city_ids?: CityRef[]; off?: boolean }

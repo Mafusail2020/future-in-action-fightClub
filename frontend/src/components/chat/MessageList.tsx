@@ -4,6 +4,7 @@ import type { ChatMessage } from '../../stores/chatStore'
 import { useChatStore } from '../../stores/chatStore'
 import { MatchCard } from './MatchCard'
 import { AssistantMarkdown } from './Message'
+import { ThinkingPanel } from './ThinkingPanel'
 
 export function MessageList({
   onEdit,
@@ -20,9 +21,21 @@ export function MessageList({
 
   const messages = session?.messages ?? []
   const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant')
+  const prevCountRef = useRef(0)
 
+  // Stick to the bottom only when the reader is already there: a brand-new
+  // message always scrolls down, but streaming tokens must not yank the view
+  // while the user scrolled up to read.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' })
+    const container = endRef.current?.closest('.panel-scroll') as HTMLElement | null
+    if (!container) return
+    const newMessage = messages.length !== prevCountRef.current
+    prevCountRef.current = messages.length
+    const nearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 140
+    if (newMessage || nearBottom) {
+      container.scrollTo({ top: container.scrollHeight })
+    }
   }, [messages.length, messages.at(-1)?.content]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -138,6 +151,13 @@ function MessageRow({
 
   return (
     <div>
+      <ThinkingPanel
+        thinking={message.thinking}
+        tools={message.tools}
+        streaming={message.streaming}
+        hasAnswer={!!message.content}
+      />
+
       {matches.length > 0 && (
         <div className="mb-3 flex flex-col gap-1.5" aria-label="Підібрані рішення">
           <p className="font-mono text-[10px] tracking-[0.14em] text-text-tertiary uppercase">
@@ -151,10 +171,8 @@ function MessageRow({
 
       {message.content ? (
         <AssistantMarkdown content={message.content} sources={message.sources} />
-      ) : message.streaming ? (
-        <p className="animate-pulse-soft text-[15px] text-text-secondary">
-          {matches.length > 0 ? 'Пояснюю…' : 'Аналізую місто та підбираю рішення…'}
-        </p>
+      ) : message.streaming && !message.thinking && (message.tools ?? []).length === 0 ? (
+        <p className="animate-pulse-soft text-[15px] text-text-secondary">Аналізую…</p>
       ) : null}
 
       {message.streaming && message.content && (

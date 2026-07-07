@@ -21,3 +21,14 @@ class ProfilesRepository:
     def set(self, city: str, country: str, profile: dict) -> None:
         key = profile_key(city, country)
         self.client.table("profiles").upsert({"key": key, "profile": profile}).execute()
+
+    # Deep dossier reuses the same jsonb cache under a distinct key namespace,
+    # so no extra table/migration is needed.
+    def get_dossier(self, city: str, country: str) -> dict | None:
+        key = "dossier|" + profile_key(city, country)
+        rows = self.client.table("profiles").select("*").eq("key", key).limit(1).execute().data
+        return rows[0]["profile"] if rows else None
+
+    def set_dossier(self, city: str, country: str, dossier: dict) -> None:
+        key = "dossier|" + profile_key(city, country)
+        self.client.table("profiles").upsert({"key": key, "profile": dossier}).execute()

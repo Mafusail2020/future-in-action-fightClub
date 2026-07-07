@@ -80,9 +80,12 @@ class FakeCitiesRepo:
 class FakeAgentWithSources:
     cities = FakeCitiesRepo()
 
-    def answer_stream(self, message, profile, matches, history,
-                      on_map_op=None, sources_out=None):
-        yield "Відповідь з джерелом [S1]."
+    def build_profile(self, city, country):
+        return None
+
+    def answer_stream(self, message, profile, history, limit=6,
+                      on_map_op=None, on_matches=None, sources_out=None):
+        yield {"type": "text", "text": "Відповідь з джерелом [S1]."}
         if sources_out is not None:
             sources_out["S1"] = {"type": "solution", "title": "Cycle Superhighways",
                                  "city": "Copenhagen, Denmark", "url": "https://example.com"}
@@ -115,7 +118,7 @@ class FakeLLMCapture:
 
     def stream_with_tools(self, system, messages, tools, on_tool, **kwargs):
         self.tools_seen = [t["name"] for t in tools]
-        yield "ok"
+        yield {"type": "text", "text": "ok"}
 
 
 def test_search_tools_join_only_with_embeddings(monkeypatch):
@@ -125,12 +128,18 @@ def test_search_tools_join_only_with_embeddings(monkeypatch):
     agent = Agent(llm=llm, cities=FakeCitiesRepo(), solutions=None, rag=FakeRag())
 
     monkeypatch.setattr(pl, "embeddings_available", lambda: False)
-    list(agent.answer_stream("q", None, [], [], on_map_op=lambda _: None))
-    assert llm.tools_seen == ["direct_map"]
+    list(agent.answer_stream("q", None, [], on_map_op=lambda _: None))
+    assert llm.tools_seen == ["direct_map", "recommend_solutions", "geocode_place"]
 
     monkeypatch.setattr(pl, "embeddings_available", lambda: True)
-    list(agent.answer_stream("q", None, [], [], on_map_op=lambda _: None))
-    assert llm.tools_seen == ["direct_map", "search_solutions", "search_city_state"]
+    list(agent.answer_stream("q", None, [], on_map_op=lambda _: None))
+    assert llm.tools_seen == [
+        "direct_map",
+        "recommend_solutions",
+        "geocode_place",
+        "search_solutions",
+        "search_city_state",
+    ]
 
 
 # --- provider fallback ---------------------------------------------------------

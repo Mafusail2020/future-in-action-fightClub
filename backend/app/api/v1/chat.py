@@ -25,19 +25,15 @@ def chat(req: ChatRequest, agent: Agent = Depends(get_agent)) -> StreamingRespon
 
     def event_stream():
         try:
+            # Build (cached) city profile for context only — solutions are NOT
+            # matched up front; the model calls recommend_solutions when wanted.
             profile = None
-            matches = []
             if req.city and req.country:
-                profile, matches = agent.recommend(req.city, req.country, req.limit)
-                payload = {
-                    "profile": profile.model_dump(mode="json"),
-                    "matches": [m.model_dump(mode="json") for m in matches],
-                }
-                yield f"event: matches\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                profile = agent.build_profile(req.city, req.country)
 
             known_ids = {c["id"] for c in agent.cities.list_with_counts()}
             ops_sent = 0
-            pending_ops: SimpleQueue[dict] = SimpleQueue()
+            pending: SimpleQueue[str] = SimpleQueue()  # queued SSE frames
             sources: dict[str, dict] = {}
 
             def on_map_op(raw: dict) -> None:
@@ -47,32 +43,42 @@ def chat(req: ChatRequest, agent: Agent = Depends(get_agent)) -> StreamingRespon
                 op = validate_op(raw, known_ids)
                 if op is not None:
                     ops_sent += 1
-                    pending_ops.put(op)
+                    pending.put(f"event: map_op\ndata: {json.dumps(op, ensure_ascii=False)}\n\n")
 
-            for token in agent.answer_stream(
-                req.message,
-                profile,
-                matches,
-                req.history,
-                on_map_op=on_map_op,
-                sources_out=sources,
-            ):
-                # Ops queue up during tool rounds; flush them at token boundaries
-                # so the map moves in step with the prose.
+            def on_matches(matches) -> None:
+                payload = {
+                    "profile": profile.model_dump(mode="json") if profile else None,
+                    "matches": [m.model_dump(mode="json") for m in matches],
+                }
+                pending.put(f"event: matches\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n")
+
+            def flush():
                 while True:
                     try:
-                        op = pending_ops.get_nowait()
+                        yield pending.get_nowait()
                     except Empty:
                         break
-                    yield f"event: map_op\ndata: {json.dumps(op, ensure_ascii=False)}\n\n"
-                yield f"event: token\ndata: {json.dumps({'text': token}, ensure_ascii=False)}\n\n"
 
-            while True:  # trailing ops after the last token
-                try:
-                    op = pending_ops.get_nowait()
-                except Empty:
-                    break
-                yield f"event: map_op\ndata: {json.dumps(op, ensure_ascii=False)}\n\n"
+            for ev in agent.answer_stream(
+                req.message,
+                profile,
+                req.history,
+                limit=req.limit,
+                on_map_op=on_map_op,
+                on_matches=on_matches,
+                sources_out=sources,
+            ):
+                # Map ops / match cards queued in callbacks flush at event boundaries.
+                yield from flush()
+                kind = ev.get("type")
+                if kind == "text":
+                    yield f"event: token\ndata: {json.dumps({'text': ev['text']}, ensure_ascii=False)}\n\n"
+                elif kind == "thinking":
+                    yield f"event: thinking\ndata: {json.dumps({'text': ev['text']}, ensure_ascii=False)}\n\n"
+                elif kind == "tool":
+                    yield f"event: tool\ndata: {json.dumps({'name': ev['name']}, ensure_ascii=False)}\n\n"
+
+            yield from flush()  # trailing ops / matches after the last event
 
             if sources:  # label -> source map for [S#] citation chips
                 yield f"event: sources\ndata: {json.dumps(sources, ensure_ascii=False)}\n\n"

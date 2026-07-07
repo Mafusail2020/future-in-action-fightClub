@@ -93,6 +93,9 @@ export function ChatsView() {
                   <span className="text-xs text-text-secondary">Видалити?</span>
                   <button
                     type="button"
+                    // Keep focus on «Ні» so its onBlur doesn't tear down this row
+                    // before the click lands (that swallowed the delete).
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => deleteSession(session.id)}
                     className="rounded-md bg-danger/20 px-2 py-0.5 text-xs font-medium text-danger hover:bg-danger/30"
                   >

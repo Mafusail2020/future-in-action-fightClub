@@ -3,6 +3,8 @@ import type { ChatRequestBody, MapOp, MatchesEvent, SourcesMap } from './types'
 export interface StreamHandlers {
   onMatches: (payload: MatchesEvent) => void
   onToken: (text: string) => void
+  onThinking: (text: string) => void
+  onTool: (name: string) => void
   onMapOp: (op: MapOp) => void
   onSources: (sources: SourcesMap) => void
   onDone: () => void
@@ -53,6 +55,8 @@ export async function streamChat(
     if (!event) return
     if (event === 'matches') handlers.onMatches(JSON.parse(data) as MatchesEvent)
     else if (event === 'token') handlers.onToken((JSON.parse(data) as { text: string }).text)
+    else if (event === 'thinking') handlers.onThinking((JSON.parse(data) as { text: string }).text)
+    else if (event === 'tool') handlers.onTool((JSON.parse(data) as { name: string }).name)
     else if (event === 'map_op') handlers.onMapOp(JSON.parse(data) as MapOp)
     else if (event === 'sources') handlers.onSources(JSON.parse(data) as SourcesMap)
     else if (event === 'done') {

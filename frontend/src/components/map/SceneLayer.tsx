@@ -50,7 +50,7 @@ function SceneView({ scene, sessionId }: { scene: Scene; sessionId: string }) {
       ))}
 
       {scene.marks.map((mark) => {
-        const point = resolveCityRef(mark.city)
+        const point = mark.point ?? (mark.city ? resolveCityRef(mark.city) : null)
         if (!point) return null
         const Icon = MARK_ICONS[mark.kind]
         return (
@@ -62,10 +62,16 @@ function SceneView({ scene, sessionId }: { scene: Scene; sessionId: string }) {
                 </span>
               )}
               <Icon
-                size={20}
+                size={30}
                 strokeWidth={2}
-                className={mark.kind === 'warning' ? 'text-danger' : 'text-amber'}
-                fill={mark.kind === 'star' ? 'currentColor' : 'none'}
+                // [&_circle]: the pin's inner hole stays see-through over the map
+                className={`[&_circle]:fill-transparent ${
+                  mark.kind === 'warning' ? 'text-danger' : 'text-amber'
+                }`}
+                // star = solid amber; check = bare stroke (fill bleeds white); rest = white body
+                fill={
+                  mark.kind === 'star' ? 'currentColor' : mark.kind === 'check' ? 'none' : 'white'
+                }
               />
             </div>
           </Marker>
@@ -77,13 +83,21 @@ function SceneView({ scene, sessionId }: { scene: Scene; sessionId: string }) {
         if (!point) return null
         return (
           <Marker key={`hl-${city}`} longitude={point[0]} latitude={point[1]} anchor="center" style={{ zIndex: 3 }}>
-            <span
-              aria-hidden
-              className={`block rounded-full border-2 border-amber ${
-                style === 'pulse' ? 'animate-ping-slow' : style === 'glow' ? 'hl-glow' : ''
-              }`}
-              style={{ width: 34, height: 34 }}
-            />
+            {/* radar pulse: a steady ring + an expanding one, so it reads even mid-cycle */}
+            <span aria-hidden className="relative block" style={{ width: 34, height: 34 }}>
+              {style !== 'ring' && (
+                <span
+                  className={`absolute inset-0 rounded-full border-2 border-amber ${
+                    style === 'pulse' ? 'animate-ping-slow' : ''
+                  }`}
+                />
+              )}
+              <span
+                className={`absolute inset-0 rounded-full border-2 border-amber ${
+                  style === 'glow' ? 'hl-glow' : ''
+                }`}
+              />
+            </span>
           </Marker>
         )
       })}
@@ -170,8 +184,25 @@ function CalloutMarker({
   onClose: () => void
 }) {
   const { current: map } = useMap()
-  const point = resolveCityRef(callout.city)
+  const point = callout.point ?? (callout.city ? resolveCityRef(callout.city) : null)
   const [lineDrawn, setLineDrawn] = useState(false)
+  const [shownChars, setShownChars] = useState(0)
+
+  // Typewriter: reveal the text character by character once the card is up.
+  useEffect(() => {
+    if (!lineDrawn) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setShownChars(callout.text.length)
+      return
+    }
+    let count = 0
+    const timer = window.setInterval(() => {
+      count += 2
+      setShownChars(count)
+      if (count >= callout.text.length) window.clearInterval(timer)
+    }, 24)
+    return () => window.clearInterval(timer)
+  }, [lineDrawn, callout.text])
 
   // auto side: flip left when the anchor sits in the right 40% of the viewport
   const side = useMemo(() => {
@@ -222,11 +253,13 @@ function CalloutMarker({
         <div
           role="note"
           aria-label={`Радник про це місце: ${callout.text}`}
-          className="absolute w-56 rounded-lg border border-accent/30 bg-ink-900/95 px-3 py-2 shadow-xl backdrop-blur transition-all duration-200"
+          className={`absolute w-56 rounded-lg border border-accent/30 bg-ink-900/95 px-3 py-2 shadow-xl backdrop-blur ${
+            lineDrawn ? 'callout-pop' : ''
+          }`}
           style={{
             [flip ? 'right' : 'left']: LINE_W - 4,
-            bottom: LINE_H * 0.65 - 14 + (lineDrawn ? 0 : -6),
-            opacity: lineDrawn ? 1 : 0,
+            bottom: LINE_H * 0.65 - 14,
+            opacity: lineDrawn ? undefined : 0, // hidden until the leader line lands
             pointerEvents: lineDrawn ? 'auto' : 'none',
           }}
         >
@@ -238,7 +271,11 @@ function CalloutMarker({
           >
             <X size={12} strokeWidth={2} />
           </button>
-          <p className="pr-3 text-[12.5px] leading-snug text-text-primary">{callout.text}</p>
+          {/* invisible full text reserves the box; the visible copy types over it */}
+          <p aria-hidden className="relative pr-3 text-[12.5px] leading-snug text-text-primary">
+            <span className="invisible">{callout.text}</span>
+            <span className="absolute inset-0 pr-3">{callout.text.slice(0, shownChars)}</span>
+          </p>
         </div>
       </div>
     </Marker>

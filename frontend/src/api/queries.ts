@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { apiGet } from './client'
+import { apiGet, apiPost } from './client'
 import type {
   CategoryOption,
   City,
   CityDetail,
+  CityProfile,
+  Dossier,
   MapLayerResponse,
   MapModeInfo,
   Solution,
@@ -42,6 +44,30 @@ export function useSolution(solutionId: string | undefined) {
     queryKey: ['solution', solutionId],
     queryFn: () => apiGet<Solution>(`/solutions/${solutionId}`),
     enabled: !!solutionId,
+  })
+}
+
+/** The AI's cached profile of the user's home city — powers the sidebar
+ *  "what the AI knows" panel. Cached server-side, so this is a cheap POST. */
+export function useCityProfile(city: string, country: string) {
+  return useQuery({
+    queryKey: ['profile', city, country],
+    queryFn: () => apiPost<CityProfile>('/profile', { city, country }),
+    staleTime: Infinity,
+    enabled: !!city && !!country,
+  })
+}
+
+/** Cached deep dossier for a city (null until a deep-dive has been run). */
+export function useCityDossier(city: string, country: string) {
+  return useQuery({
+    queryKey: ['dossier', city, country],
+    queryFn: () =>
+      apiGet<{ dossier: Dossier | null }>(
+        `/dossier?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}`,
+      ).then((r) => r.dossier),
+    staleTime: Infinity,
+    enabled: !!city && !!country,
   })
 }
 

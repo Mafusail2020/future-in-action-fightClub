@@ -14,6 +14,10 @@ export interface ChatMessage {
   /** [S#] label -> source for citation chips in this answer. */
   sources?: SourcesMap
   profile?: CityProfile
+  /** The model's streamed reasoning (extended thinking), shown collapsibly. */
+  thinking?: string
+  /** Tool activity labels for this turn, in order (deduped). */
+  tools?: string[]
   streaming?: boolean
   error?: string
 }
@@ -55,6 +59,8 @@ interface ChatState {
   appendMessage: (sessionId: string, message: ChatMessage) => void
   updateLastAssistant: (sessionId: string, patch: Partial<ChatMessage>) => void
   appendToken: (sessionId: string, text: string) => void
+  appendThinking: (sessionId: string, text: string) => void
+  appendTool: (sessionId: string, name: string) => void
   appendMapOp: (sessionId: string, op: MapOp) => void
   setStreaming: (value: boolean) => void
 }
@@ -146,6 +152,20 @@ export const useChatStore = create<ChatState>()(
         const last = session?.messages.at(-1)
         if (last?.role === 'assistant') {
           get().updateLastAssistant(sessionId, { content: last.content + text })
+        }
+      },
+      appendThinking: (sessionId, text) => {
+        const session = get().sessions.find((x) => x.id === sessionId)
+        const last = session?.messages.at(-1)
+        if (last?.role === 'assistant') {
+          get().updateLastAssistant(sessionId, { thinking: (last.thinking ?? '') + text })
+        }
+      },
+      appendTool: (sessionId, name) => {
+        const session = get().sessions.find((x) => x.id === sessionId)
+        const last = session?.messages.at(-1)
+        if (last?.role === 'assistant' && !(last.tools ?? []).includes(name)) {
+          get().updateLastAssistant(sessionId, { tools: [...(last.tools ?? []), name] })
         }
       },
       appendMapOp: (sessionId, op) => {

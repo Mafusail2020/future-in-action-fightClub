@@ -44,6 +44,17 @@ class RagRepository:
             .execute()
         )
 
+    def delete_city_docs_by_kind(self, key: str, kinds: list[str]) -> None:
+        """Drop prior docs of the given kinds for a city (chunks cascade), so a
+        dossier rebuild replaces rather than piles up."""
+        (
+            self.client.table("city_docs")
+            .delete()
+            .eq("city_key", key)
+            .in_("kind", kinds)
+            .execute()
+        )
+
     def list_city_docs(self, key: str) -> list[dict]:
         return (
             self.client.table("city_docs")

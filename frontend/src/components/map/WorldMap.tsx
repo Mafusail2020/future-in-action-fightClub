@@ -86,6 +86,11 @@ export function WorldMap() {
           loadRoadShield(mapRef.current)
           loadNamePlate(mapRef.current)
         }}
+        onClick={() => {
+          // Pressing anywhere on the map dismisses highlight rings + spotlight dim.
+          const sessionId = useChatStore.getState().activeSessionId
+          if (sessionId) useMapScene.getState().clearEffects(sessionId)
+        }}
       >
         <ModeLayers />
         <CityMarkers />

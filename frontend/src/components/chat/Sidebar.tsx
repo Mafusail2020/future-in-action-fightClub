@@ -13,6 +13,8 @@ import { useState } from 'react'
 import { useChatStore } from '../../stores/chatStore'
 import { CityAutocomplete } from './CityAutocomplete'
 import { CityDocsBox } from './CityDocsBox'
+import { CityKnowledge } from '../city/CityKnowledge'
+import { DeepDiveCard } from '../city/DeepDiveCard'
 
 const USER_NAME = 'User'
 
@@ -85,9 +87,15 @@ export function Sidebar() {
         </button>
       </div>
 
-      <CitySection />
-      <CityDocsBox />
-      <Recents searchOpen={searchOpen} query={query} setQuery={setQuery} />
+      {/* Everything between the pinned header and footer scrolls together, so a
+          tall "what the AI knows" panel never buries the chat list. */}
+      <div className="panel-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <CitySection />
+        <DeepDiveCard />
+        <CityKnowledge />
+        <CityDocsBox />
+        <Recents searchOpen={searchOpen} query={query} setQuery={setQuery} />
+      </div>
       <Footer />
     </nav>
   )
@@ -154,7 +162,7 @@ function Recents({
     : sessions
 
   return (
-    <div className="mt-6 flex min-h-0 flex-1 flex-col px-3">
+    <div className="mt-6 flex flex-col px-3">
       <p className="mb-2 px-2 text-xs font-medium tracking-[0.05em] text-text-tertiary uppercase">
         Останні
       </p>
@@ -168,7 +176,7 @@ function Recents({
           className="mx-1 mb-1.5 rounded-lg border border-border-subtle bg-bg-elevated px-2.5 py-1.5 text-sm outline-none placeholder:text-text-tertiary focus-visible:border-accent/50"
         />
       )}
-      <div className="panel-scroll min-h-0 flex-1 overflow-y-auto pb-2">
+      <div className="pb-2">
         {visible.length === 0 && (
           <p className="px-2 py-4 text-sm text-text-tertiary">
             {query ? 'Нічого не знайдено' : 'Розмов ще не було'}
@@ -202,6 +210,9 @@ function Recents({
                   </span>
                   <button
                     type="button"
+                    // Keep focus on «Ні» so its onBlur doesn't tear down this row
+                    // before the click lands (that swallowed the delete).
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
                       deleteSession(session.id)
                       setConfirmingId(null)

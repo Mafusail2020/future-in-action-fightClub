@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterator
 
+from app.agent.geocode import GEOCODE_TOOL, geocode
 from app.agent.llm import LLM, load_prompt
 from app.agent.map_ops import MAP_OP_TOOL
 from app.agent.search_tools import SEARCH_CITY_TOOL, SEARCH_SOLUTIONS_TOOL, SearchToolkit
@@ -76,6 +77,28 @@ def _compact(solution: dict) -> dict:
         "problem": solution["problem"],
         "outcome": solution.get("outcome"),
     }
+
+
+# The recommendation step is a tool now, so it runs ONLY when the user actually
+# wants solutions — not on every message.
+RECOMMEND_TOOL: dict = {
+    "name": "recommend_solutions",
+    "description": (
+        "Find and show the user solutions from OTHER cities that fit their city, ranked "
+        "by relevance. Call this ONLY when the user asks for solutions, recommendations, "
+        "ideas, examples, or a comparison of what other cities did — NEVER for plain "
+        "questions about their own city's state. The matched solutions appear to the user "
+        "as cards and glowing map markers automatically; the tool result gives you the same "
+        "shortlist so you can discuss them."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "focus": {"type": "string", "description": "optional problem area to emphasize"},
+        },
+        "required": [],
+    },
+}
 
 
 class Agent:
@@ -211,37 +234,58 @@ class Agent:
 
     # --- 4. Synthesize (streaming) --------------------------------------------------
 
+    def _match_shortlist(self, matches: list[Match]) -> list[dict]:
+        return [
+            {
+                "solution_id": m.solution_id,
+                "city": m.solution.city.name if m.solution and m.solution.city else None,
+                "title": m.solution.title if m.solution else None,
+                "category": m.solution.category if m.solution else None,
+                "outcome": m.solution.outcome if m.solution else None,
+                "source_urls": m.solution.source_urls if m.solution else [],
+                "why_it_fits": m.rationale,
+                "adaptation_notes": m.adaptation_notes,
+            }
+            for m in matches
+        ]
+
     def answer_stream(
         self,
         message: str,
         profile: CityProfile | None,
-        matches: list[Match],
         history: list[ChatMessage],
+        limit: int = 6,
         on_map_op: Callable[[dict], None] | None = None,
+        on_matches: Callable[[list[Match]], None] | None = None,
         sources_out: dict[str, dict] | None = None,
-    ) -> Iterator[str]:
+    ) -> Iterator[dict]:
+        """Yields typed stream events (see LLM.stream_with_tools). Solutions are
+        NOT computed up front — the model calls `recommend_solutions` when the
+        user actually wants them."""
         context_parts: list[str] = []
         if profile:
             context_parts.append(f"City profile:\n{profile.model_dump_json(indent=2)}")
-        if matches:
-            shortlist = [
-                {
-                    "city": m.solution.city.name if m.solution and m.solution.city else None,
-                    "title": m.solution.title if m.solution else None,
-                    "category": m.solution.category if m.solution else None,
-                    "solution": m.solution.solution if m.solution else None,
-                    "outcome": m.solution.outcome if m.solution else None,
-                    "source_urls": m.solution.source_urls if m.solution else [],
-                    "why_it_fits": m.rationale,
-                    "adaptation_notes": m.adaptation_notes,
-                }
-                for m in matches
-            ]
-            context_parts.append(
-                "Matched solutions:\n" + json.dumps(shortlist, ensure_ascii=False, indent=2)
-            )
-        else:
-            context_parts.append("No matched solutions were found for this query.")
+
+        # If a deep dossier has been built, hand the model its verified hard facts
+        # (population, mayor, area…) directly, plus the list of topics it can pull
+        # detail on via search_city_state — so it answers from real data instead of
+        # declining ("that's not in my profile").
+        if profile and self.profiles:
+            dossier = self.profiles.get_dossier(profile.city, profile.country)
+            if dossier:
+                facts = dossier.get("facts") or []
+                if facts:
+                    context_parts.append(
+                        "Verified facts about the user's city (Wikidata / OpenStreetMap — treat as "
+                        "authoritative):\n"
+                        + "\n".join(f"- {f['label']}: {f['value']}" for f in facts)
+                    )
+                titles = [s["title"] for s in (dossier.get("sections") or []) if s.get("title")]
+                if titles:
+                    context_parts.append(
+                        "A deep dossier on this city is on file. For specifics beyond the facts "
+                        "above, call search_city_state. Topics covered: " + "; ".join(titles)
+                    )
 
         messages: list[dict] = [
             {"role": m.role, "content": m.content} for m in history if m.role in ("user", "assistant")
@@ -249,12 +293,7 @@ class Agent:
         user_content = "\n\n".join(context_parts) + f"\n\nUser message:\n{message}"
         messages.append({"role": "user", "content": user_content})
 
-        if on_map_op is None:
-            yield from self.llm.stream(system=load_prompt("synthesize.md"), messages=messages)
-            return
-
-        # Agentic mode: the city catalog (ids the model may reference), the
-        # direct_map tool, and — when embeddings are configured — RAG search tools.
+        # The city catalog (ids the model may reference on the map).
         catalog = [
             {"id": c["id"], "name": c["name"], "country": c["country"]}
             for c in self.cities.list_with_counts()
@@ -264,17 +303,40 @@ class Agent:
             + json.dumps(catalog, ensure_ascii=False)
         )
 
-        tools = [MAP_OP_TOOL]
+        tools = [MAP_OP_TOOL, RECOMMEND_TOOL, GEOCODE_TOOL]
         toolkit: SearchToolkit | None = None
         if self.rag and embeddings_available():
             key = city_key(profile.city, profile.country) if profile else None
             toolkit = SearchToolkit(self.rag, key)
             tools += [SEARCH_SOLUTIONS_TOOL, SEARCH_CITY_TOOL]
 
+        def do_recommend() -> str:
+            if not profile:
+                return json.dumps({"error": "the user has not set their city"})
+            candidates = self.select_candidates(profile)
+            matches = self.match(profile, candidates, limit)
+            if on_matches:
+                on_matches(matches)
+            if not matches:
+                return json.dumps({"matches": [], "note": "no matching solutions found"})
+            return json.dumps(
+                {"matches": self._match_shortlist(matches)}, ensure_ascii=False, default=str
+            )
+
         def on_tool(name: str, raw: dict) -> str | None:
             if name == "direct_map":
-                on_map_op(raw)
+                if on_map_op:
+                    on_map_op(raw)
                 return None  # -> "ok"
+            if name == "recommend_solutions":
+                return do_recommend()
+            if name == "geocode_place":
+                within = raw.get("within_user_city", True)
+                return geocode(
+                    str(raw.get("query", "")),
+                    city=profile.city if profile and within else None,
+                    country=profile.country if profile and within else None,
+                )
             if toolkit:
                 return toolkit.run(name, raw)
             return json.dumps({"error": f"unknown tool {name}"})

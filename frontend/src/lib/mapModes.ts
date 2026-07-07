@@ -2,6 +2,7 @@ import type { ExpressionSpecification } from 'maplibre-gl'
 
 import { Delaunay } from 'd3-delaunay'
 import type { FeatureCollection } from 'geojson'
+import polygonClipping from 'polygon-clipping'
 
 import type { MapModeInfo } from '../api/types'
 
@@ -124,16 +125,12 @@ function rampColor(v: number): [number, number, number] {
   return [lerp(245, 229, t), lerp(184, 72, t), lerp(76, 77, t)]
 }
 
-export interface DensityImage {
-  url: string
-  /** [tl, tr, br, bl] as [lng, lat] — for a MapLibre image source. */
-  coordinates: [[number, number], [number, number], [number, number], [number, number]]
-  /** Convex hull of the districts — a clean approximate city border. */
-  hull: [number, number][]
-  /** Boundary rings actually used for clipping (real admin border or hull). */
+export interface DensityMosaic {
+  /** Voronoi cells (clipped to the boundary), each with `color` and a random
+   *  `delay` 0..1 that staggers its fade-in. Fully vector -> crisp at any zoom. */
+  cells: FeatureCollection
+  /** Boundary rings used for clipping (real admin border or hull). */
   rings: [number, number][][]
-  /** Vector mosaic grout (crisp at any zoom, replaces raster grout). */
-  grout: FeatureCollection
 }
 
 /** Andrew's monotone chain. Points as [lng, lat]. */
@@ -157,49 +154,6 @@ function convexHull(points: [number, number][]): [number, number][] {
   lower.pop()
   upper.pop()
   return [...lower, ...upper]
-}
-
-/**
- * Clip segment a→b to the inside of the boundary rings. Returns the inside
- * sub-segments — correct for concave boundaries (unlike a midpoint test, which
- * drops edges whose middle bulges into a notch).
- */
-function clipSegment(
-  a: [number, number],
-  b: [number, number],
-  rings: number[][][],
-  inside: (x: number, y: number) => boolean,
-): [number, number][][] {
-  const ts = [0, 1]
-  const [ax, ay] = a
-  const dx = b[0] - ax
-  const dy = b[1] - ay
-  for (const ring of rings) {
-    for (let i = 0; i < ring.length - 1; i++) {
-      const [cx, cy] = ring[i]
-      const ex = ring[i + 1][0] - cx
-      const ey = ring[i + 1][1] - cy
-      const denom = dx * ey - dy * ex
-      if (Math.abs(denom) < 1e-12) continue
-      const t = ((cx - ax) * ey - (cy - ay) * ex) / denom
-      const u = ((cx - ax) * dy - (cy - ay) * dx) / denom
-      if (t > 0 && t < 1 && u >= 0 && u <= 1) ts.push(t)
-    }
-  }
-  ts.sort((p, q) => p - q)
-  const pieces: [number, number][][] = []
-  for (let i = 0; i < ts.length - 1; i++) {
-    const t0 = ts[i]
-    const t1 = ts[i + 1]
-    if (t1 - t0 < 1e-9) continue
-    const mt = (t0 + t1) / 2
-    if (!inside(ax + dx * mt, ay + dy * mt)) continue
-    pieces.push([
-      [ax + dx * t0, ay + dy * t0],
-      [ax + dx * t1, ay + dy * t1],
-    ])
-  }
-  return pieces
 }
 
 /** Ray-cast point-in-ring. */
@@ -226,11 +180,12 @@ function mulberry32(seed: number) {
 
 /**
  * Voronoi mosaic over the city: the REAL administrative boundary (feature
- * tagged `_boundary`, hull fallback) is sliced into irregular ~350 m pieces,
- * each flat-colored by the interpolated density at its seed. Rasterized once
- * in geographic space -> zoom-stable image source.
+ * tagged `_boundary`, hull fallback) is sliced into irregular ~650 m cells,
+ * each clipped to the boundary and flat-colored by the interpolated density.
+ * Fully vector (no raster) -> crisp at any zoom, and each cell carries a random
+ * `delay` so the frontend can stagger a fade-in.
  */
-export function densityImage(fc: AnyFC, valueProp: string): DensityImage | null {
+export function densityMosaic(fc: AnyFC, valueProp: string): DensityMosaic | null {
   const pts: { x: number; y: number; v: number }[] = []
   const boundaryRings: number[][][] = []
   const districtPts: [number, number][] = []
@@ -317,83 +272,47 @@ export function densityImage(fc: AnyFC, valueProp: string): DensityImage | null 
     return Math.max(0, Math.min(1, swv / sw))
   }
 
-  const W = 2048
-  const H = Math.round((W * heightKm) / widthKm)
-  const canvas = document.createElement('canvas')
-  canvas.width = W
-  canvas.height = H
-  const ctx = canvas.getContext('2d')!
-  const toPx = ([x, y]: number[]): [number, number] => [
-    ((x - minX) / (maxX - minX)) * W,
-    ((maxY - y) / (maxY - minY)) * H,
-  ]
-
-  // Raster holds only the smooth color FILL. The mosaic grout is emitted as
-  // vector geometry (below) so tile edges stay crisp at any zoom.
-  const inAnyRing = (x: number, y: number) => rings.some((ring) => inRing(x, y, ring))
-  const seg: number[][][] = []
-  const seen = new Set<string>()
+  // Boundary as polygon-clipping geometry (each ring an outer polygon).
+  // The whole boundary as ONE MultiPolygon (each ring an outer polygon) — the
+  // city can be several disjoint parts, so clip against their UNION, not each.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const boundaryMP: any = rings.map((ring) => {
+    const r = ring.map((p) => [p[0], p[1]])
+    if (r.length && (r[0][0] !== r[r.length - 1][0] || r[0][1] !== r[r.length - 1][1])) r.push(r[0])
+    return [r]
+  })
 
   const voronoi = Delaunay.from(seeds).voronoi([minX, minY, maxX, maxY])
+  const features: FeatureCollection['features'] = []
   for (let i = 0; i < seeds.length; i++) {
     const cell = voronoi.cellPolygon(i)
     if (!cell) continue
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cellPoly: any = [cell.map((p) => [p[0], p[1]])]
     const [r, g, b] = rampColor(idw(seeds[i][0], seeds[i][1]))
-    ctx.beginPath()
-    cell.forEach((pt, j) => {
-      const [cx, cy] = toPx(pt)
-      if (j === 0) ctx.moveTo(cx, cy)
-      else ctx.lineTo(cx, cy)
-    })
-    ctx.closePath()
-    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.72)`
-    ctx.fill()
+    const color = `rgb(${r}, ${g}, ${b})`
+    const delay = Math.round(rand() * 1000) / 1000
 
-    // Vector grout: each cell edge once (dedup shared edges), clipped to the
-    // boundary so it stays inside even across concave notches.
-    for (let j = 0; j < cell.length - 1; j++) {
-      const a = cell[j] as [number, number]
-      const b2 = cell[j + 1] as [number, number]
-      const ka = `${a[0].toFixed(5)},${a[1].toFixed(5)}`
-      const kb = `${b2[0].toFixed(5)},${b2[1].toFixed(5)}`
-      const key = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      for (const piece of clipSegment(a, b2, rings, inAnyRing)) seg.push(piece)
+    // Clip the cell to the boundary — correct across concave notches.
+    let clipped: number[][][][] = []
+    try {
+      clipped = polygonClipping.intersection(cellPoly, boundaryMP) as unknown as number[][][][]
+    } catch {
+      clipped = []
+    }
+    for (const poly of clipped) {
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: poly },
+        properties: { color, delay },
+      })
     }
   }
-
-  // Clip the fill to the real boundary.
-  ctx.globalCompositeOperation = 'destination-in'
-  ctx.beginPath()
-  for (const ring of rings) {
-    ring.forEach((pt, i) => {
-      const [cx, cy] = toPx(pt)
-      if (i === 0) ctx.moveTo(cx, cy)
-      else ctx.lineTo(cx, cy)
-    })
-    ctx.closePath()
-  }
-  ctx.fill()
+  if (!features.length) return null
 
   return {
-    url: canvas.toDataURL('image/png'),
-    coordinates: [
-      [minX, maxY],
-      [maxX, maxY],
-      [maxX, minY],
-      [minX, minY],
-    ],
-    hull: rings[0] as [number, number][],
+    cells: { type: 'FeatureCollection', features },
     rings: rings as [number, number][][],
-    grout: {
-      type: 'FeatureCollection',
-      features: seg.map((s) => ({
-        type: 'Feature',
-        geometry: { type: 'LineString', coordinates: s },
-        properties: {},
-      })),
-    } as FeatureCollection,
   }
 }
 

@@ -10,6 +10,7 @@ from app.db.repositories.map_layers import MapLayersRepository
 from app.db.repositories.profiles import ProfilesRepository
 from app.db.repositories.rag import RagRepository
 from app.db.repositories.solutions import SolutionsRepository
+from app.research.dossier import DossierBuilder
 
 
 def get_cities_repo() -> CitiesRepository:
@@ -30,6 +31,15 @@ def get_profiles_repo() -> ProfilesRepository:
 
 def get_rag_repo() -> RagRepository:
     return RagRepository(get_supabase())
+
+
+def get_dossier_builder() -> DossierBuilder:
+    client = get_supabase()
+    return DossierBuilder(
+        llm=make_llm(),
+        rag=RagRepository(client),
+        profiles=ProfilesRepository(client),
+    )
 
 
 def get_agent() -> Agent:

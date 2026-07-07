@@ -53,7 +53,7 @@ export function Composer({
         rows={1}
         placeholder="Спитайте про місто…"
         aria-label="Повідомлення до радника"
-        className="max-h-[200px] min-h-[56px] flex-1 resize-none bg-transparent px-5 pt-[18px] pb-1 text-[17px] outline-none placeholder:text-text-tertiary max-md:px-4 max-md:text-base"
+        className="max-h-[200px] min-h-[56px] flex-1 resize-none bg-transparent px-5 pt-[18px] pb-1 text-[17px] outline-none placeholder:text-text-tertiary @max-md/chat:px-4 @max-md/chat:text-base"
       />
 
       <div className="flex h-[52px] items-center justify-between px-3 pt-2 pb-3">

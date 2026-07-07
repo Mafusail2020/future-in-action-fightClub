@@ -112,7 +112,7 @@ export function AppShell() {
           <main
             aria-label="Чат із радником"
             style={{ width: chatWidth }}
-            className={`pointer-events-auto relative shrink-0 bg-bg-main max-md:!w-full max-md:flex-1 ${
+            className={`pointer-events-auto @container/chat relative shrink-0 bg-bg-main max-md:!w-full max-md:flex-1 ${
               mobileView === 'map' ? 'max-md:hidden' : ''
             }`}
           >

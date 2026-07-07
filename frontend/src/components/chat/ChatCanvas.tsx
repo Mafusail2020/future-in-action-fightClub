@@ -60,10 +60,10 @@ export function ChatCanvas() {
     return (
       <div className="relative h-full min-h-0 overflow-y-auto">
         {cornerButton}
-        <div className="mx-auto w-full max-w-[760px] px-6 pt-[22vh] max-md:pt-[14vh]">
+        <div className="mx-auto w-full max-w-[760px] px-6 pt-[22vh] max-md:pt-[14vh] @max-md/chat:px-4">
           <h1
-            className="greeting-in font-serif flex items-center justify-center text-center font-normal text-text-primary max-lg:!text-5xl"
-            style={{ fontSize: 52, lineHeight: 1.1 }}
+            className="greeting-in font-serif flex items-center justify-center text-center font-normal text-text-primary"
+            style={{ fontSize: 'clamp(1.9rem, 6.5cqi, 3.25rem)', lineHeight: 1.1 }}
           >
             {greeting}
           </h1>
@@ -72,7 +72,7 @@ export function ChatCanvas() {
             <Composer onSend={send} onStop={stop} />
           </div>
 
-          <div className="mt-5 flex flex-wrap justify-center gap-2 lg:flex-nowrap">
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
             {PILLS.map(({ icon: Icon, label, question }) => (
               <button
                 key={label}
@@ -97,14 +97,14 @@ export function ChatCanvas() {
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <div className="panel-scroll min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[760px] px-6 pt-6 pb-40 max-md:px-4">
+        <div className="mx-auto w-full max-w-[760px] px-6 pt-6 pb-40 @max-md/chat:px-4">
           <MessageList onEdit={editAndResend} onRegenerate={regenerate} />
         </div>
       </div>
 
       {/* Docked composer with a fade so messages scroll "under" it */}
       <div className="pointer-events-none absolute right-0 bottom-0 left-0 bg-gradient-to-t from-bg-main via-bg-main/85 to-transparent pt-10">
-        <div className="pointer-events-auto mx-auto w-full max-w-[760px] px-6 pb-6 max-md:px-4 max-md:pb-3">
+        <div className="pointer-events-auto mx-auto w-full max-w-[760px] px-6 pb-6 @max-md/chat:px-4 @max-md/chat:pb-3">
           <Composer onSend={send} onStop={stop} docked />
         </div>
       </div>

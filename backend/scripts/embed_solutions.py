@@ -28,9 +28,9 @@ def main() -> None:
             part
             for part in (
                 f"{s['title']} — {city.get('name')}, {city.get('country')}",
-                f"Problem: {s['problem']}",
-                f"Solution: {s['solution']}",
-                f"Outcome: {s['outcome']}" if s.get("outcome") else "",
+                f"Проблема: {s['problem']}",
+                f"Рішення: {s['solution']}",
+                f"Результат: {s['outcome']}" if s.get("outcome") else "",
             )
             if part
         )

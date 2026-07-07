@@ -26,18 +26,18 @@ CATEGORIES: list[str] = [c.value for c in Category]
 
 # Human-friendly labels for the frontend filter UI.
 CATEGORY_LABELS: dict[str, str] = {
-    Category.TRANSPORT: "Transport & Mobility",
-    Category.ENERGY: "Energy & Heating",
-    Category.HOUSING: "Housing",
-    Category.WATER: "Water & Sanitation",
-    Category.WASTE: "Waste Management",
-    Category.SAFETY: "Public Safety",
-    Category.HEALTH: "Health",
-    Category.ENVIRONMENT: "Environment & Green Space",
-    Category.DIGITAL: "Digital & Smart City",
-    Category.GOVERNANCE: "Governance & Participation",
-    Category.ECONOMY: "Local Economy",
-    Category.CLIMATE_RESILIENCE: "Climate Resilience",
+    Category.TRANSPORT: "Транспорт і мобільність",
+    Category.ENERGY: "Енергетика й опалення",
+    Category.HOUSING: "Житло",
+    Category.WATER: "Вода й водовідведення",
+    Category.WASTE: "Поводження з відходами",
+    Category.SAFETY: "Громадська безпека",
+    Category.HEALTH: "Здоров'я",
+    Category.ENVIRONMENT: "Довкілля й зелені зони",
+    Category.DIGITAL: "Цифрове й розумне місто",
+    Category.GOVERNANCE: "Врядування й участь",
+    Category.ECONOMY: "Місцева економіка",
+    Category.CLIMATE_RESILIENCE: "Кліматична стійкість",
 }
 
 

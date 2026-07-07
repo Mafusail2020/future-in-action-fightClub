@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Children, Fragment, isValidElement, useState } from 'react'
 import Markdown from 'react-markdown'
+import { Link } from 'react-router-dom'
 import remarkGfm from 'remark-gfm'
 
 import type { RagSource, SourcesMap } from '../../api/types'
@@ -78,15 +79,13 @@ function SourceChip({ label, source }: { label: string; source: RagSource }) {
             )}
           </span>
           {source.type === 'solution' && source.solution_id && (
-            <a
-              href={`/solution/${source.solution_id}`}
-              target="_blank"
-              rel="noreferrer"
+            <Link
+              to={`/solution/${source.solution_id}`}
               className="mt-1 block text-[11px] text-accent underline underline-offset-2"
               onMouseDown={(e) => e.preventDefault()}
             >
-              Відкрити повний кейс ↗
-            </a>
+              Відкрити повний кейс →
+            </Link>
           )}
         </span>
       )}

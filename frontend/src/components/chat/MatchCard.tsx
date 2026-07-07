@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 import type { Match } from '../../api/types'
 import { categoryLabel } from '../../lib/categories'
 import { ukCityName } from '../../lib/cityNamesUk'
@@ -6,7 +8,7 @@ import { useMapStore } from '../../stores/mapStore'
 /**
  * The signature element: a matched solution card that is the same evidence as
  * the glowing marker on the map. Hover/focus lights the marker; click opens
- * the full solution in a new tab.
+ * the full solution in the same tab.
  */
 export function MatchCard({ match }: { match: Match }) {
   const setActiveSolution = useMapStore((s) => s.setActiveSolution)
@@ -17,10 +19,8 @@ export function MatchCard({ match }: { match: Match }) {
   const isActive = activeSolutionId === match.solution_id
 
   return (
-    <a
-      href={`/solution/${s.id}`}
-      target="_blank"
-      rel="noreferrer"
+    <Link
+      to={`/solution/${s.id}`}
       onMouseEnter={() => setActiveSolution(match.solution_id)}
       onMouseLeave={() => setActiveSolution(null)}
       onFocus={() => setActiveSolution(match.solution_id)}
@@ -43,6 +43,6 @@ export function MatchCard({ match }: { match: Match }) {
       </div>
       <p className="mt-0.5 text-[13px] leading-snug font-medium text-paper">{s.title}</p>
       <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted">{match.rationale}</p>
-    </a>
+    </Link>
   )
 }

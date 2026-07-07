@@ -1,5 +1,5 @@
 import Markdown from 'react-markdown'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import remarkGfm from 'remark-gfm'
 
 import { useSolution } from '../../api/queries'
@@ -16,6 +16,13 @@ export function SolutionPage() {
   return (
     <div className="panel-scroll min-h-full overflow-y-auto bg-ink-950">
       <div className="mx-auto max-w-[46rem] px-5 py-10 max-md:py-6">
+        <Link
+          to="/"
+          className="mb-6 inline-flex items-center gap-1.5 rounded border border-line px-2.5 py-1 font-mono text-[11px] tracking-wide text-muted uppercase transition-colors hover:border-cyan/40 hover:text-cyan"
+        >
+          ← На головну
+        </Link>
+
         {query.isPending && <Spinner label="Завантажуємо рішення…" />}
         {query.isError && (
           <ErrorBox

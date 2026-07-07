@@ -1,5 +1,6 @@
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { useSolutions } from '../../api/queries'
 import type { Category, Solution } from '../../api/types'
@@ -119,10 +120,8 @@ export function ProblemsDropdown() {
                     <ul className="pb-1">
                       {items.map((s) => (
                         <li key={s.id}>
-                          <a
-                            href={`/solution/${s.id}`}
-                            target="_blank"
-                            rel="noreferrer"
+                          <Link
+                            to={`/solution/${s.id}`}
                             className="group block px-3.5 py-2 pl-5 transition-colors hover:bg-bg-main/60"
                           >
                             <p className="text-sm leading-snug text-text-primary group-hover:text-accent">
@@ -133,7 +132,7 @@ export function ProblemsDropdown() {
                                 {ukCityName(s.city.name)} · {s.city.country}
                               </p>
                             )}
-                          </a>
+                          </Link>
                         </li>
                       ))}
                     </ul>

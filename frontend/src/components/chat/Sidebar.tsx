@@ -16,7 +16,7 @@ import { CityDocsBox } from './CityDocsBox'
 import { CityKnowledge } from '../city/CityKnowledge'
 import { DeepDiveCard } from '../city/DeepDiveCard'
 
-const USER_NAME = 'User'
+const USER_NAME = 'Користувач'
 
 /** Claude-style sidebar: logotype, nav, city context, recents, account footer. */
 export function Sidebar() {

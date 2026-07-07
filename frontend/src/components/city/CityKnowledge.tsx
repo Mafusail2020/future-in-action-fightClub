@@ -18,7 +18,7 @@ const TIER_LABEL: Record<string, string> = {
  *  chat turn. Sits directly above the "Дані про місто" report box. */
 export function CityKnowledge() {
   const homeCity = useChatStore((s) => s.homeCity)
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   const { data, isLoading, isError } = useCityProfile(homeCity.city, homeCity.country)
 
   if (isError) return null

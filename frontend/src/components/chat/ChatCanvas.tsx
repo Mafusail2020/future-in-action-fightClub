@@ -62,10 +62,9 @@ export function ChatCanvas() {
         {cornerButton}
         <div className="mx-auto w-full max-w-[760px] px-6 pt-[22vh] max-md:pt-[14vh]">
           <h1
-            className="greeting-in font-serif flex items-center justify-center gap-4 text-center font-normal text-text-primary max-lg:!text-5xl"
+            className="greeting-in font-serif flex items-center justify-center text-center font-normal text-text-primary max-lg:!text-5xl"
             style={{ fontSize: 52, lineHeight: 1.1 }}
           >
-            <Starburst />
             {greeting}
           </h1>
 
@@ -110,25 +109,5 @@ export function ChatCanvas() {
         </div>
       </div>
     </div>
-  )
-}
-
-/** The logo glyph: an 8-ray starburst in the accent teal, 0.75em of the text. */
-function Starburst() {
-  return (
-    <svg
-      aria-hidden
-      width="0.75em"
-      height="0.75em"
-      viewBox="0 0 24 24"
-      className="shrink-0 text-accent"
-    >
-      <g stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-        <line x1="12" y1="2.5" x2="12" y2="21.5" />
-        <line x1="2.5" y1="12" x2="21.5" y2="12" />
-        <line x1="5.3" y1="5.3" x2="18.7" y2="18.7" />
-        <line x1="18.7" y1="5.3" x2="5.3" y2="18.7" />
-      </g>
-    </svg>
   )
 }
